@@ -79,7 +79,7 @@ das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.
 ### Status eines Gruppenmanagements
 
 `draft` (noch nicht ausgelost) → `drawn` (ausgelost, nur Dozierende) →
-`published` (nach „Go“, für Studierende sichtbar).
+`published` (nach „Los“, für Studierende sichtbar).
 
 ### Weitere Methoden hinzufügen (B–J)
 
