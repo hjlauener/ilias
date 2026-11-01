@@ -7,10 +7,10 @@ content#:#Inhalt
 properties#:#Einstellungen
 edit#:#Bearbeiten
 status#:#Status
-online#:#Online
-online_info#:#Nur wenn das Objekt online ist, können Studierende es sehen.
-offline#:#Offline
-object_offline_info#:#Dieses Objekt ist offline und für Studierende nicht sichtbar. Sie können es unter „Einstellungen“ online schalten.
+online#:#Sichtbar
+online_info#:#Nur wenn das Objekt sichtbar geschaltet ist, können Studierende es sehen.
+offline#:#Nicht sichtbar
+object_offline_info#:#Dieses Objekt ist für Studierende nicht sichtbar. Sie können es unter „Einstellungen“ sichtbar schalten.
 group_management#:#Gruppenmanagement
 active_management#:#Aktives Gruppenmanagement
 none#:#Keines
@@ -28,7 +28,7 @@ active#:#Aktiv
 mgmt_title#:#Titel
 method#:#Methode
 method_a#:#A – Zufallszuteilung durch Dozierende
-method_a_info#:#Die Dozierenden entscheiden: Die Mitglieder des übergeordneten Kurses werden nach dem Zufallsprinzip auf eine feste Anzahl Gruppen oder Themen verteilt. Die Einteilung wird erst nach „Go“ für die Studierenden sichtbar.
+method_a_info#:#Die Dozierenden entscheiden: Die Mitglieder des übergeordneten Kurses werden nach dem Zufallsprinzip auf eine feste Anzahl Gruppen oder Themen verteilt. Die Einteilung wird erst nach „Los“ für die Studierenden sichtbar.
 method_b#:#B – (in Vorbereitung)
 method_b_info#:#Diese Methode ist noch nicht verfügbar.
 method_c#:#C – (in Vorbereitung)
@@ -59,7 +59,7 @@ topics#:#Themen
 topics_info#:#Ein Thema pro Zeile. Die Anzahl Zeilen bestimmt die Anzahl Gruppen.
 topics_invalid#:#Bitte mindestens ein und höchstens %s Themen angeben (ein Thema pro Zeile).
 show_all_groups#:#Studierende sehen alle Gruppen
-show_all_groups_info#:#Wenn aktiviert, sehen Studierende nach „Go“ die gesamte Gruppeneinteilung. Sonst sehen sie nur die eigene Gruppe.
+show_all_groups_info#:#Wenn aktiviert, sehen Studierende nach „Los“ die gesamte Gruppeneinteilung. Sonst sehen sie nur die eigene Gruppe.
 summary_groups#:#%s Gruppen
 summary_topics#:#%s Themen
 settings_locked_published#:#Die Einteilung ist freigegeben. Um die Gruppen zu ändern, zuerst die Freigabe zurücknehmen.
@@ -75,10 +75,10 @@ your_group#:#Ihre Gruppe
 not_assigned#:#Noch keiner Gruppe zugeteilt
 no_longer_member#:#nicht mehr im Kurs
 deleted_user#:#Gelöschter Benutzer
-not_drawn_yet#:#Es wurde noch nicht ausgelost. Mit „Zufallszuteilung durchführen“ erhalten Sie eine Vorschau, mit „Go“ wird ausgelost und die Einteilung für die Studierenden freigegeben.
+not_drawn_yet#:#Es wurde noch nicht ausgelost. Mit „Zufallszuteilung durchführen“ erhalten Sie eine Vorschau, mit „Los“ wird ausgelost und die Einteilung für die Studierenden freigegeben.
 draw#:#Zufallszuteilung durchführen
 redraw#:#Neu auslosen
-go#:#Go – Einteilung freigeben
+go#:#Los – Einteilung freigeben
 unpublish#:#Freigabe zurücknehmen
 assign_latecomers#:#Neue Kursmitglieder zuteilen
 confirm_activate#:#Soll dieses Gruppenmanagement aktiviert werden? Ein bisher aktives Gruppenmanagement wird dabei deaktiviert.
