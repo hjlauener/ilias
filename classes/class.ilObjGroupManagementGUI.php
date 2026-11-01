@@ -50,6 +50,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private const READ_COMMANDS = [
         "showContent",
         "showStudentView",
+        "showStudentManagement",
     ];
 
     private ilGrmRepository $grm_repo;
@@ -127,14 +128,15 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
     public function addInfoItems(ilInfoScreenGUI $info): void
     {
-        $active = $this->grm_repo->getActiveManagement($this->object->getId());
+        $titles = [];
+        foreach ($this->grm_repo->getActiveManagements($this->object->getId()) as $active) {
+            $titles[] = $this->esc($active->getTitle()) . " (" . $this->txt("method_" . $active->getMethod()) . ")";
+        }
 
         $info->addSection($this->txt("group_management"));
         $info->addProperty(
-            $this->txt("active_management"),
-            $active !== null
-                ? $this->esc($active->getTitle()) . " (" . $this->txt("method_" . $active->getMethod()) . ")"
-                : $this->txt("none")
+            $this->txt("active_managements"),
+            $titles !== [] ? implode("<br>", $titles) : $this->txt("none")
         );
     }
 
@@ -407,16 +409,15 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
-     * What students see: the group assignment of the active management,
-     * but only after "Go".
+     * What students see first: an overview of all active managements.
+     * A click on a management opens its group assignment.
      */
     private function showStudentView(): void
     {
         $this->tabs->activateTab(self::TAB_CONTENT);
         $f = $this->ui_factory;
 
-        $is_lecturer = $this->access->checkAccess("write", "", $this->object->getRefId());
-        if ($is_lecturer) {
+        if ($this->isLecturer()) {
             $this->toolbar->addComponent($f->button()->standard(
                 $this->txt("back_to_overview"),
                 $this->ctrl->getLinkTarget($this, "showContent")
@@ -424,8 +425,62 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->tpl->setOnScreenMessage("info", $this->txt("student_view_info"));
         }
 
-        $mgmt = $this->grm_repo->getActiveManagement($this->object->getId());
-        if ($mgmt === null || !$mgmt->isPublished()) {
+        $managements = $this->grm_repo->getActiveManagements($this->object->getId());
+        if ($managements === []) {
+            $this->tpl->setContent($this->ui_renderer->render(
+                $f->messageBox()->info($this->txt("no_active_managements"))
+            ));
+            return;
+        }
+
+        $items = [];
+        foreach ($managements as $mgmt) {
+            if ($mgmt->isPublished()) {
+                $groups = $this->grm_repo->getGroups($mgmt->getId());
+                $my_group_id = $this->grm_repo->getAssignments($mgmt->getId())[$this->user->getId()] ?? null;
+                $value = ($my_group_id !== null && isset($groups[$my_group_id]))
+                    ? $this->esc($groups[$my_group_id])
+                    : $this->txt("you_are_not_assigned");
+            } else {
+                $value = $this->txt("not_published_yet");
+            }
+
+            $items[] = $f->item()->standard(
+                $f->button()->shy($this->esc($mgmt->getTitle()), $this->linkTo("showStudentManagement", $mgmt))
+            )->withProperties([$this->txt("your_group") => $value]);
+        }
+
+        $this->tpl->setContent($this->ui_renderer->render(
+            $f->panel()->listing()->standard($this->txt("student_overview"), [$f->item()->group("", $items)])
+        ));
+    }
+
+    /**
+     * Group assignment of one management for students. The own group is
+     * shown first and set apart from the other groups.
+     */
+    private function showStudentManagement(): void
+    {
+        $mgmt = $this->requireManagement();
+        if (!$mgmt->isActive() && !$this->isLecturer()) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("management_not_found"), true);
+            $this->ctrl->redirect($this, "showContent");
+        }
+
+        $this->tabs->activateTab(self::TAB_CONTENT);
+        $f = $this->ui_factory;
+
+        $this->toolbar->addComponent($f->button()->standard(
+            $this->txt("back_to_overview"),
+            $this->ctrl->getLinkTarget($this, "showStudentView")
+        ));
+        if ($this->isLecturer()) {
+            $this->tpl->setOnScreenMessage("info", $this->txt("student_view_info"));
+        }
+
+        $this->tpl->setTitle($this->object->getTitle() . ": " . $mgmt->getTitle());
+
+        if (!$mgmt->isPublished()) {
             $this->tpl->setContent($this->ui_renderer->render(
                 $f->messageBox()->info($this->txt("assignment_not_visible_yet"))
             ));
@@ -435,33 +490,47 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $groups = $this->grm_repo->getGroups($mgmt->getId());
         $assignments = $this->grm_repo->getAssignments($mgmt->getId());
         $my_group_id = $assignments[$this->user->getId()] ?? null;
+        if ($my_group_id !== null && !isset($groups[$my_group_id])) {
+            $my_group_id = null;
+        }
 
         $components = [];
-        if ($my_group_id !== null && isset($groups[$my_group_id])) {
+        if ($my_group_id !== null) {
+            // own group first and set apart
             $components[] = $f->messageBox()->success(
                 sprintf($this->txt("you_are_in_group"), $this->esc($groups[$my_group_id]))
             );
+            $components = array_merge($components, $this->buildGroupPanels(
+                [$my_group_id => $groups[$my_group_id]],
+                $assignments,
+                null,
+                null,
+                $this->txt("your_group")
+            ));
         } else {
             $components[] = $f->messageBox()->info($this->txt("you_are_not_assigned"));
         }
 
         if ($mgmt->isShowAllGroups()) {
-            $components = array_merge(
-                $components,
-                $this->buildGroupPanels($groups, $assignments, $my_group_id)
-            );
-        } elseif ($my_group_id !== null && isset($groups[$my_group_id])) {
-            $components = array_merge(
-                $components,
-                $this->buildGroupPanels(
-                    [$my_group_id => $groups[$my_group_id]],
-                    array_filter($assignments, static fn(int $g): bool => $g === $my_group_id),
-                    $my_group_id
-                )
-            );
+            $other_groups = $groups;
+            if ($my_group_id !== null) {
+                unset($other_groups[$my_group_id]);
+            }
+            $components = array_merge($components, $this->buildGroupPanels(
+                $other_groups,
+                $assignments,
+                null,
+                null,
+                $my_group_id !== null ? $this->txt("other_groups") : $this->txt("groups")
+            ));
         }
 
         $this->tpl->setContent($this->ui_renderer->render($components));
+    }
+
+    private function isLecturer(): bool
+    {
+        return $this->access->checkAccess("write", "", $this->object->getRefId());
     }
 
     // ------------------------------------------------------------------
@@ -503,7 +572,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $this->grm_repo->saveManagement($mgmt);
 
         $message = $this->txt("management_created");
-        if ($this->grm_repo->getActiveManagement($this->object->getId()) === null) {
+        if ($this->grm_repo->getActiveManagements($this->object->getId()) === []) {
             $this->grm_repo->activate($mgmt);
             $message .= " " . $this->txt("management_auto_activated");
         }
@@ -1088,7 +1157,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         array $groups,
         array $assignments,
         ?int $highlight_group_id = null,
-        ?array $course_members = null
+        ?array $course_members = null,
+        ?string $panel_title_text = null
     ): array {
         $members_by_group = array_fill_keys(array_keys($groups), []);
         foreach ($assignments as $user_id => $group_id) {
@@ -1126,7 +1196,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         if ($panels === []) {
             return [];
         }
-        return [$this->ui_factory->panel()->standard($this->txt("groups"), $panels)];
+        return [$this->ui_factory->panel()->standard($panel_title_text ?? $this->txt("groups"), $panels)];
     }
 
     /**

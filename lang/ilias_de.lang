@@ -12,13 +12,15 @@ online_info#:#Nur wenn das Objekt sichtbar geschaltet ist, können Studierende e
 offline#:#Nicht sichtbar
 object_offline_info#:#Dieses Objekt ist für Studierende nicht sichtbar. Sie können es unter „Einstellungen“ sichtbar schalten.
 group_management#:#Gruppenmanagement
-active_management#:#Aktives Gruppenmanagement
+active_managements#:#Aktive Gruppenmanagements
 none#:#Keines
 managements#:#Gruppenmanagements
 new_management#:#Neues Gruppenmanagement
 no_managements#:#Es wurde noch kein Gruppenmanagement angelegt.
 student_view#:#Ansicht Studierende
 student_view_info#:#Vorschau: So sehen Studierende dieses Objekt.
+student_overview#:#Gruppeneinteilungen
+no_active_managements#:#Zurzeit gibt es keine Gruppeneinteilungen.
 back_to_overview#:#Zurück zur Übersicht
 open#:#Öffnen
 edit_settings#:#Einstellungen bearbeiten
@@ -72,6 +74,8 @@ groups#:#Gruppen
 group_title_n#:#Gruppe %s
 group_empty#:#Keine Mitglieder
 your_group#:#Ihre Gruppe
+other_groups#:#Weitere Gruppen
+not_published_yet#:#Noch nicht freigegeben
 not_assigned#:#Noch keiner Gruppe zugeteilt
 no_longer_member#:#nicht mehr im Kurs
 deleted_user#:#Gelöschter Benutzer
@@ -87,7 +91,7 @@ confirm_draw#:#Sollen die Kursmitglieder jetzt zufällig zugeteilt werden? Die E
 confirm_redraw#:#Soll neu ausgelost werden? Die bisherige Einteilung wird verworfen.
 confirm_go#:#Soll die Gruppeneinteilung jetzt für die Studierenden freigegeben werden?
 confirm_go_draw_first#:#Da noch nicht ausgelost wurde, werden die Kursmitglieder zuerst zufällig zugeteilt.
-confirm_go_activate#:#Das Gruppenmanagement wird dabei aktiviert (ein anderes aktives wird deaktiviert).
+confirm_go_activate#:#Das Gruppenmanagement wird dabei aktiviert.
 confirm_unpublish#:#Soll die Freigabe zurückgenommen werden? Die Einteilung bleibt erhalten, ist aber für Studierende nicht mehr sichtbar.
 confirm_assign_latecomers#:#Sollen die noch nicht zugeteilten Kursmitglieder zufällig auf die kleinsten Gruppen verteilt werden? Bestehende Zuteilungen bleiben unverändert.
 management_created#:#Das Gruppenmanagement wurde angelegt.

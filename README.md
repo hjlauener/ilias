@@ -11,8 +11,12 @@ Mitglieder eines Kurses in Gruppen einteilen.
    Löschen, Rechte bearbeiten).
 2. **Gruppenmanagements innerhalb des Objekts** – Dozierende (Schreibrecht)
    legen ein oder mehrere Gruppenmanagements an und wählen dabei eine
-   **Methode a–j**. Jedes Gruppenmanagement kann aktiviert werden, es ist aber
-   **immer höchstens eines aktiv**. Studierende sehen nur das aktive.
+   **Methode a–j** (pro Gruppenmanagement genau eine Methode). Gruppenmanagements
+   werden mit einem Umschalter aktiviert/deaktiviert; **mehrere können gleichzeitig
+   aktiv sein**. Studierende sehen nur aktive.
+   - Studierende sehen zuerst eine **Übersicht** der aktiven Gruppenmanagements
+     (mit ihrer Gruppe, sobald freigegeben). Ein Klick auf den Namen öffnet die
+     Einteilung; die **eigene Gruppe steht abgehoben zuoberst**.
 3. **Methode A – Zufallszuteilung durch Dozierende** (umgesetzt)
    - Die Mitglieder des übergeordneten Kurses (Rolle *Mitglied*, ohne
      Kursadministratoren und Tutoren) werden zufällig und gleichmässig
@@ -21,8 +25,8 @@ Mitglieder eines Kurses in Gruppen einteilen.
      - eine **feste Anzahl Themen** (ein Thema pro Zeile, pro Thema eine Gruppe).
    - „Zufallszuteilung durchführen“ erstellt eine Vorschau, die nur Dozierende
      sehen (beliebig oft neu auslosbar).
-   - **„Go“** gibt die Einteilung frei – erst dann ist sie für Studierende
-     sichtbar. Falls noch nicht ausgelost wurde, lost „Go“ zuerst aus; ein
+   - **„Los“** gibt die Einteilung frei – erst dann ist sie für Studierende
+     sichtbar. Falls noch nicht ausgelost wurde, lost „Los“ zuerst aus; ein
      inaktives Gruppenmanagement wird dabei aktiviert.
    - „Freigabe zurücknehmen“ verbirgt die Einteilung wieder.
    - „Neue Kursmitglieder zuteilen“ verteilt später beigetretene Mitglieder

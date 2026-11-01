@@ -52,15 +52,24 @@ class ilGrmRepository
         return $rec ? $this->buildManagement($rec) : null;
     }
 
-    public function getActiveManagement(int $obj_id): ?ilGrmManagement
+    /**
+     * All active managements of an object (several can be active at the same time).
+     *
+     * @return ilGrmManagement[]
+     */
+    public function getActiveManagements(int $obj_id): array
     {
         $set = $this->db->query(
             "SELECT * FROM " . self::TABLE_MGMT .
             " WHERE obj_id = " . $this->db->quote($obj_id, "integer") .
-            " AND is_active = " . $this->db->quote(1, "integer")
+            " AND is_active = " . $this->db->quote(1, "integer") .
+            " ORDER BY created, id"
         );
-        $rec = $this->db->fetchAssoc($set);
-        return $rec ? $this->buildManagement($rec) : null;
+        $list = [];
+        while ($rec = $this->db->fetchAssoc($set)) {
+            $list[] = $this->buildManagement($rec);
+        }
+        return $list;
     }
 
     public function saveManagement(ilGrmManagement $mgmt): void
@@ -90,15 +99,11 @@ class ilGrmRepository
     }
 
     /**
-     * Activates the given management and deactivates all other managements
-     * of the same object – there can never be two active managements.
+     * Activates the given management. Other managements of the same object
+     * keep their state – several managements can be active at the same time.
      */
     public function activate(ilGrmManagement $mgmt): void
     {
-        $this->db->manipulate(
-            "UPDATE " . self::TABLE_MGMT . " SET is_active = " . $this->db->quote(0, "integer") .
-            " WHERE obj_id = " . $this->db->quote($mgmt->getObjId(), "integer")
-        );
         $this->db->manipulate(
             "UPDATE " . self::TABLE_MGMT . " SET is_active = " . $this->db->quote(1, "integer") .
             " WHERE id = " . $this->db->quote($mgmt->getId(), "integer")

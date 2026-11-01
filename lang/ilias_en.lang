@@ -12,13 +12,15 @@ online_info#:#Students can only see the object if it is online.
 offline#:#Offline
 object_offline_info#:#This object is offline and not visible for students. You can set it online in the "Settings" tab.
 group_management#:#Group Management
-active_management#:#Active group management
+active_managements#:#Active group managements
 none#:#None
 managements#:#Group Managements
 new_management#:#New Group Management
 no_managements#:#No group management has been created yet.
 student_view#:#Student View
 student_view_info#:#Preview: this is what students see.
+student_overview#:#Group Assignments
+no_active_managements#:#There are currently no group assignments.
 back_to_overview#:#Back to Overview
 open#:#Open
 edit_settings#:#Edit Settings
@@ -72,6 +74,8 @@ groups#:#Groups
 group_title_n#:#Group %s
 group_empty#:#No members
 your_group#:#Your group
+other_groups#:#Other Groups
+not_published_yet#:#Not published yet
 not_assigned#:#Not assigned to a group yet
 no_longer_member#:#no longer in course
 deleted_user#:#Deleted user
@@ -87,7 +91,7 @@ confirm_draw#:#Do you want to randomly assign the course members now? The assign
 confirm_redraw#:#Do you want to draw again? The current assignment will be discarded.
 confirm_go#:#Do you want to publish the group assignment for the students now?
 confirm_go_draw_first#:#As no draw has been made yet, the course members will be randomly assigned first.
-confirm_go_activate#:#The group management will be activated as well (another active one will be deactivated).
+confirm_go_activate#:#The group management will be activated as well.
 confirm_unpublish#:#Do you want to unpublish? The assignment is kept but no longer visible for students.
 confirm_assign_latecomers#:#Do you want to randomly assign the remaining course members to the smallest groups? Existing assignments remain unchanged.
 management_created#:#The group management has been created.
