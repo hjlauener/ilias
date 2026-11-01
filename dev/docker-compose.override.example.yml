@@ -5,5 +5,6 @@ services:
   ilias:                       # <- Name des ILIAS-Service in deiner docker-compose.yml
     volumes:
       # links:  Pfad zu diesem Repository auf dem Mac
-      # rechts: <ILIAS-Verzeichnis im Container>/Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement
-      - ~/Projekte/GroupManagement:/var/www/html/Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement
+      # rechts: Plugin-Ordner im Container (ILIAS 10/11: unter public/Customizing,
+      #         ILIAS 9: unter Customizing) – "grm status" zeigt den richtigen Pfad
+      - ~/Projekte/GroupManagement:/var/www/html/public/Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement

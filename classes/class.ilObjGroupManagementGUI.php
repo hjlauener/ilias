@@ -1093,7 +1093,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             }
 
             if ($user_ids === []) {
-                $content = $this->ui_factory->legacy("<em>" . $this->txt("group_empty") . "</em>");
+                // (no legacy() component here: its signature differs between ILIAS 10 and 11)
+                $content = $this->ui_factory->listing()->unordered(["<em>" . $this->txt("group_empty") . "</em>"]);
             } else {
                 $names = [];
                 foreach ($this->sortUsersByName($user_ids) as $user_id) {

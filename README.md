@@ -1,6 +1,6 @@
 # GroupManagement – ILIAS Repository-Objekt-Plugin
 
-Plugin für [ILIAS](https://www.ilias.de) (Version 9), mit dem Dozierende die
+Plugin für [ILIAS](https://www.ilias.de) (Version 9, 10 und 11), mit dem Dozierende die
 Mitglieder eines Kurses in Gruppen einteilen.
 
 ## Konzept
@@ -33,23 +33,17 @@ Mitglieder eines Kurses in Gruppen einteilen.
 
 ## Installation
 
-```bash
-mkdir -p Customizing/global/plugins/Services/Repository/RepositoryObject
-cd Customizing/global/plugins/Services/Repository/RepositoryObject
-git clone <repo-url> GroupManagement
-```
+Zielordner (ab ILIAS 10 liegt `Customizing` unter `public/`):
 
-Danach im ILIAS-Hauptverzeichnis:
+- ILIAS 10/11: `public/Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement`
+- ILIAS 9: `Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement`
 
-```bash
-composer du
-```
+Danach im ILIAS-Hauptverzeichnis `composer du` ausführen und das Plugin installieren:
 
-```bash
-php setup/setup.php update
-```
+- ILIAS 10/11: `php cli/setup.php install --legacy-plugin GroupManagement`
+- ILIAS 9: `php setup/setup.php install --plugin GroupManagement`
 
-Dann unter *Administration → Erweiterungen → Plugins* das Plugin
+Alternativ unter *Administration → Erweiterungen → Plugins* das Plugin
 „GroupManagement“ installieren und aktivieren. Anschliessend in den Kursen
 (bzw. in den Rollenvorlagen) das Recht „Gruppenmanagement anlegen“ für die
 gewünschten Rollen vergeben.
@@ -93,5 +87,5 @@ das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.
 ## Tests
 
 ```bash
-./libs/composer/vendor/bin/phpunit Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement/tests
+./vendor/composer/vendor/bin/phpunit public/Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement/tests
 ```

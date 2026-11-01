@@ -80,9 +80,11 @@ grm --watch
 | --- | --- |
 | Code kopieren (nur ohne Mount) | Code in den Container bringen |
 | `php -l` auf alle Plugin-Dateien | Syntaxfehler sofort sehen statt weisser Seite |
-| `composer dump-autoload` | neue Klassen werden gefunden |
-| `php setup/setup.php build-artifacts` | ILIAS kennt Plugin-Version und neue GUI-Klassen (ilCtrl) |
-| `php setup/setup.php update --plugin GroupManagement` | DB-Updates (bei neuer Version in `plugin.php`), Sprachdateien neu laden, Plugin aktiv halten |
+| `composer dump-autoload` (als Besitzer der ILIAS-Dateien) | neue Klassen werden gefunden; ab ILIAS 10 werden dabei auch die Artifacts (Plugin-Infos, ilCtrl-Struktur) neu erzeugt |
+| nur ILIAS 9: `php setup/setup.php build-artifacts` | Plugin-Infos und ilCtrl-Struktur |
+| `php cli/setup.php update --legacy-plugin GroupManagement` (ILIAS 9: `setup/setup.php … --plugin`) | DB-Updates (bei neuer Version in `plugin.php`), Sprachdateien neu laden, Plugin aktiv halten |
+
+Das Skript erkennt die ILIAS-Version selbst (`grm status`).
 
 ## Weitere Befehle
 

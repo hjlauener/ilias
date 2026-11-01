@@ -10,6 +10,7 @@
 #   ./dev/reload.sh logs       Docker-Logs des ILIAS-Containers verfolgen
 #   ./dev/reload.sh shell      Shell im ILIAS-Container öffnen
 #
+# Unterstützt ILIAS 9 (setup/setup.php) und ILIAS 10/11 (cli/setup.php, public/Customizing).
 # Einstellungen (optional) in dev/config.env – siehe dev/config.env.example.
 # Läuft mit der macOS-Standard-Bash (3.2).
 
@@ -20,20 +21,28 @@ PLUGIN_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG_FILE="$SCRIPT_DIR/config.env"
 
 PLUGIN_NAME="GroupManagement"
-PLUGIN_SUBPATH="Customizing/global/plugins/Services/Repository/RepositoryObject/$PLUGIN_NAME"
+PLUGIN_SLOT_PATH="Services/Repository/RepositoryObject/$PLUGIN_NAME"
 
 # Defaults (können per config.env oder Umgebungsvariable überschrieben werden)
 CONTAINER="${CONTAINER:-}"           # Name des ILIAS-Containers (leer = automatisch suchen)
 ILIAS_DIR="${ILIAS_DIR:-}"           # ILIAS-Verzeichnis im Container (leer = automatisch suchen)
 WEB_USER="${WEB_USER:-www-data}"     # Benutzer des Webservers im Container
+CODE_USER="${CODE_USER:-}"           # Besitzer der ILIAS-Dateien (leer = automatisch)
 SYNC_MODE="${SYNC_MODE:-auto}"       # auto | mount | copy
 ILIAS_URL="${ILIAS_URL:-}"           # z.B. http://localhost:8080 – wird nach dem Reload geöffnet
 OPEN_BROWSER="${OPEN_BROWSER:-0}"    # 1 = Browser nach dem Reload öffnen
 
 # shellcheck disable=SC1090
-[ -f "$CONFIG_FILE" ] && . "$CONFIG_FILE"
+if [ -f "$CONFIG_FILE" ]; then . "$CONFIG_FILE"; fi
 
 CANDIDATE_DIRS="/var/www/html /var/www/html/ilias /var/www/ilias /var/www /srv/www/ilias /app /opt/ilias"
+
+# werden von detect_layout gesetzt
+SETUP_PHP=""
+PLUGIN_OPT=""
+PLUGIN_BASE=""
+ILIAS_MAJOR=""
+ILIAS_VERSION=""
 
 # ----------------------------------------------------------------------
 # Ausgabe
@@ -100,28 +109,64 @@ detect_container() {
     CONTAINER="$found"
 }
 
+in_container() { docker exec "$CONTAINER" "$@"; }
+
+# ILIAS 9: setup/setup.php + Customizing/   ILIAS 10/11: cli/setup.php + public/Customizing/
+detect_layout() {
+    if in_container test -f "$ILIAS_DIR/cli/setup.php" >/dev/null 2>&1; then
+        SETUP_PHP="cli/setup.php"
+        PLUGIN_OPT="--legacy-plugin"
+        PLUGIN_BASE="public/Customizing/global/plugins"
+    elif in_container test -f "$ILIAS_DIR/setup/setup.php" >/dev/null 2>&1; then
+        SETUP_PHP="setup/setup.php"
+        PLUGIN_OPT="--plugin"
+        PLUGIN_BASE="Customizing/global/plugins"
+    else
+        die "Weder cli/setup.php noch setup/setup.php in $ILIAS_DIR gefunden."
+    fi
+
+    ILIAS_VERSION="$(in_container php -r '
+        foreach (["ilias_version.php", "include/inc.ilias_version.php"] as $f) {
+            if (is_file($argv[1] . "/" . $f)) { include $argv[1] . "/" . $f; break; }
+        }
+        echo defined("ILIAS_VERSION_NUMERIC") ? ILIAS_VERSION_NUMERIC : "?";
+    ' "$ILIAS_DIR" 2>/dev/null || echo "?")"
+    ILIAS_MAJOR="${ILIAS_VERSION%%.*}"
+
+    if [ -z "$CODE_USER" ]; then
+        CODE_USER="$(in_container stat -c %u "$ILIAS_DIR/composer.json" 2>/dev/null || echo 0)"
+    fi
+}
+
 check_web_user() {
-    if ! docker exec "$CONTAINER" id -u "$WEB_USER" >/dev/null 2>&1; then
+    if ! in_container id -u "$WEB_USER" >/dev/null 2>&1; then
         warn "Benutzer '$WEB_USER' existiert im Container nicht – verwende root. (WEB_USER in dev/config.env anpassen)"
         WEB_USER="root"
     fi
 }
 
-# Befehl im ILIAS-Verzeichnis des Containers als Webserver-Benutzer ausführen
-in_ilias() {
-    docker exec -u "$WEB_USER" -w "$ILIAS_DIR" -e COMPOSER_HOME=/tmp/composer -e HOME=/tmp "$CONTAINER" "$@"
+# Befehl als Webserver-Benutzer (Setup-Schritte, die DB/Daten schreiben)
+in_web() {
+    docker exec -u "$WEB_USER" -w "$ILIAS_DIR" -e HOME=/tmp "$CONTAINER" "$@"
 }
 
-in_ilias_root() {
+# Befehl als Besitzer der ILIAS-Dateien (composer, Artifacts im Code-Verzeichnis)
+in_code() {
+    docker exec -u "$CODE_USER" -w "$ILIAS_DIR" -e HOME=/tmp -e COMPOSER_HOME=/tmp/composer \
+        -e COMPOSER_ALLOW_SUPERUSER=1 "$CONTAINER" "$@"
+}
+
+in_root() {
     docker exec -u 0 -w "$ILIAS_DIR" "$CONTAINER" "$@"
 }
 
 # Plugin-Verzeichnis im Container (bricht ab, falls ILIAS_DIR leer ist)
-target_dir() { echo "${ILIAS_DIR:?ILIAS_DIR ist leer}/$PLUGIN_SUBPATH"; }
+target_dir() { echo "${ILIAS_DIR:?ILIAS_DIR ist leer}/${PLUGIN_BASE:?}/$PLUGIN_SLOT_PATH"; }
 
 setup_context() {
     check_docker
     detect_container
+    detect_layout
     check_web_user
 }
 
@@ -133,15 +178,35 @@ is_mounted() {
     local marker_path="${PLUGIN_DIR:?}/${marker:?}"
     local result=1
     touch "$marker_path"
-    if docker exec "$CONTAINER" test -f "$(target_dir)/$marker" >/dev/null 2>&1; then
+    if in_container test -f "$(target_dir)/$marker" >/dev/null 2>&1; then
         result=0
     fi
     rm -f "$marker_path"
     return $result
 }
 
+# Ältere Skript-Versionen haben bei ILIAS 10+ fälschlich nach <ILIAS>/Customizing kopiert.
+cleanup_wrong_location() {
+    local old dir
+    [ "$PLUGIN_BASE" = "public/Customizing/global/plugins" ] || return 0
+    old="${ILIAS_DIR:?}/Customizing/global/plugins/$PLUGIN_SLOT_PATH"
+    if in_container grep -qs '"xgrm"' "$old/plugin.php"; then
+        step "Entferne alte Kopie am falschen Ort ($old)"
+        in_root find "$old" -mindepth 1 -delete
+        in_root rmdir "$old"
+        # leere Elternordner bis <ILIAS>/Customizing entfernen
+        dir="$(dirname "$old")"
+        while [ "$dir" != "$ILIAS_DIR" ] && in_root rmdir "$dir" >/dev/null 2>&1; do
+            dir="$(dirname "$dir")"
+        done
+        ok "Alte Kopie entfernt."
+    fi
+}
+
 sync_code() {
     local mode="$SYNC_MODE" target
+    cleanup_wrong_location
+
     if [ "$mode" = "auto" ]; then
         if is_mounted; then mode="mount"; else mode="copy"; fi
     fi
@@ -158,17 +223,16 @@ sync_code() {
     esac
 
     step "Kopiere Plugin nach $CONTAINER:$target"
-    in_ilias_root mkdir -p "$target"
+    in_root mkdir -p "$target"
     # alten Stand im Container entfernen (nur Inhalt des Plugin-Ordners)
-    in_ilias_root find "$target" -mindepth 1 -delete
+    in_root find "$target" -mindepth 1 -delete
     # COPYFILE_DISABLE verhindert macOS-Metadaten (._*-Dateien)
     COPYFILE_DISABLE=1 tar -C "$PLUGIN_DIR" \
         --exclude=.git --exclude='./dev/config.env' --exclude='.DS_Store' --exclude='.mount-check-*' \
         -cf - . | docker exec -i -u 0 "$CONTAINER" tar -xf - -C "$target" 2>/dev/null \
         || die "Kopieren fehlgeschlagen."
-    if [ "$WEB_USER" != "root" ]; then
-        in_ilias_root chown -R "$WEB_USER" "$target"
-    fi
+    in_root chown -R "$CODE_USER" "$target"
+    in_root chmod -R a+rX "$target"
     ok "Code kopiert."
 }
 
@@ -178,7 +242,7 @@ sync_code() {
 lint_php() {
     step "Prüfe PHP-Syntax"
     local out
-    out="$(in_ilias sh -c "find '$(target_dir)/' -name '*.php' -not -path '*/vendor/*' -exec php -l {} \; 2>&1" | grep -v '^No syntax errors' || true)"
+    out="$(in_web sh -c "find '$(target_dir)/' -name '*.php' -not -path '*/vendor/*' -exec php -l {} \; 2>&1" | grep -v '^No syntax errors' || true)"
     if [ -n "$out" ]; then
         printf '%s\n' "$out" >&2
         die "PHP-Syntaxfehler – bitte beheben."
@@ -186,34 +250,43 @@ lint_php() {
     ok "Syntax ok."
 }
 
-dump_autoload() {
-    step "Aktualisiere Autoloader (composer dump-autoload)"
-    if in_ilias sh -c 'command -v composer' >/dev/null 2>&1; then
-        if in_ilias composer dump-autoload --quiet; then
-            ok "Autoloader aktualisiert."
-        else
-            warn "composer dump-autoload fehlgeschlagen – neue Klassen werden evtl. nicht gefunden."
-        fi
-    else
-        warn "composer ist im Container nicht installiert – neue Klassen werden evtl. nicht gefunden."
-    fi
-}
+# Autoloader (neue Klassen) und Artifacts (Plugin-Infos, ilCtrl-Struktur) neu erzeugen
+build() {
+    local out
+    in_code sh -c 'command -v composer' >/dev/null 2>&1 || die "composer ist im Container nicht installiert."
 
-build_artifacts() {
-    step "Erzeuge ILIAS-Artifacts (Plugin-Infos, ilCtrl-Struktur)"
-    in_ilias php setup/setup.php build-artifacts --yes >/dev/null \
-        || die "build-artifacts fehlgeschlagen. Details: ./dev/reload.sh shell → php setup/setup.php build-artifacts"
-    ok "Artifacts erzeugt."
+    if [ "$SETUP_PHP" = "cli/setup.php" ]; then
+        # ILIAS 10+: composer dump-autoload ruft selbst "cli/setup.php build" auf
+        step "Erzeuge Autoloader und ILIAS-Artifacts (composer dump-autoload)"
+        if ! out="$(in_code composer dump-autoload --no-interaction 2>&1)"; then
+            printf '%s\n' "$out" >&2
+            die "composer dump-autoload fehlgeschlagen."
+        fi
+        ok "Autoloader und Artifacts erzeugt."
+    else
+        step "Aktualisiere Autoloader (composer dump-autoload)"
+        if ! out="$(in_code composer dump-autoload --no-interaction 2>&1)"; then
+            printf '%s\n' "$out" >&2
+            die "composer dump-autoload fehlgeschlagen."
+        fi
+        ok "Autoloader aktualisiert."
+        step "Erzeuge ILIAS-Artifacts (Plugin-Infos, ilCtrl-Struktur)"
+        if ! out="$(in_code php setup/setup.php build-artifacts --yes 2>&1)"; then
+            printf '%s\n' "$out" >&2
+            die "build-artifacts fehlgeschlagen."
+        fi
+        ok "Artifacts erzeugt."
+    fi
 }
 
 update_plugin() {
     step "Aktualisiere Plugin (DB-Schritte, Sprachen, Aktivierung)"
     local out
-    if out="$(in_ilias php setup/setup.php update --plugin "$PLUGIN_NAME" --yes 2>&1)"; then
+    if out="$(in_web php "$SETUP_PHP" update "$PLUGIN_OPT" "$PLUGIN_NAME" --yes 2>&1)"; then
         ok "Plugin aktualisiert."
     else
         printf '%s\n' "$out" >&2
-        warn "Plugin-Update fehlgeschlagen. Ist das Plugin schon installiert? → ./dev/reload.sh install"
+        warn "Plugin-Update fehlgeschlagen. Ist das Plugin schon installiert? → grm install"
         return 1
     fi
 }
@@ -229,8 +302,7 @@ do_reload() {
     started="$(date +%s)"
     sync_code
     lint_php
-    dump_autoload
-    build_artifacts
+    build
     update_plugin || true
     ok "Fertig in $(( $(date +%s) - started ))s – Seite im Browser neu laden."
 }
@@ -238,10 +310,9 @@ do_reload() {
 do_install() {
     sync_code
     lint_php
-    dump_autoload
-    build_artifacts
+    build
     step "Installiere und aktiviere Plugin"
-    if in_ilias php setup/setup.php install --plugin "$PLUGIN_NAME" --yes; then
+    if in_web php "$SETUP_PHP" install "$PLUGIN_OPT" "$PLUGIN_NAME" --yes; then
         ok "Plugin installiert und aktiviert."
     else
         warn "Installation per Kommandozeile fehlgeschlagen."
@@ -270,9 +341,12 @@ do_pull() {
 do_status() {
     echo "Plugin-Ordner (Mac): $PLUGIN_DIR"
     echo "Container:           $CONTAINER"
+    echo "ILIAS-Version:       $ILIAS_VERSION"
     echo "ILIAS-Verzeichnis:   $ILIAS_DIR"
+    echo "Setup:               php $SETUP_PHP ($PLUGIN_OPT)"
     echo "Plugin im Container: $(target_dir)"
     echo "Webserver-Benutzer:  $WEB_USER"
+    echo "Code-Besitzer (uid): $CODE_USER"
     if is_mounted; then echo "Sync-Modus:          mount (live)"; else echo "Sync-Modus:          copy"; fi
     echo "Git-Branch:          $(git -C "$PLUGIN_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '-')"
 }
@@ -289,7 +363,7 @@ for arg in "$@"; do
         --watch) WATCH=1 ;;
         --open) OPEN_BROWSER=1 ;;
         reload|install|status|logs|shell) CMD="$arg" ;;
-        -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) die "Unbekannte Option: $arg (siehe --help)" ;;
     esac
 done
