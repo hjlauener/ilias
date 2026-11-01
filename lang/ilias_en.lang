@@ -1,0 +1,115 @@
+obj_xgrm#:#Group Management
+objs_xgrm#:#Group Managements
+xgrm_new#:#New Group Management Object
+xgrm_add#:#Add Group Management Object
+obj_xgrm_select#:#Select Group Management
+content#:#Content
+properties#:#Settings
+edit#:#Edit
+status#:#Status
+online#:#Online
+online_info#:#Students can only see the object if it is online.
+offline#:#Offline
+object_offline_info#:#This object is offline and not visible for students. You can set it online in the "Settings" tab.
+group_management#:#Group Management
+active_management#:#Active group management
+none#:#None
+managements#:#Group Managements
+new_management#:#New Group Management
+no_managements#:#No group management has been created yet.
+student_view#:#Student View
+student_view_info#:#Preview: this is what students see.
+back_to_overview#:#Back to Overview
+open#:#Open
+edit_settings#:#Edit Settings
+activate#:#Activate
+deactivate#:#Deactivate
+active#:#Active
+mgmt_title#:#Title
+method#:#Method
+method_a#:#A – Random assignment by lecturer
+method_a_info#:#The lecturer decides: the members of the parent course are randomly assigned to a fixed number of groups or topics. The assignment becomes visible for students after "Go".
+method_b#:#B – (coming soon)
+method_b_info#:#This method is not available yet.
+method_c#:#C – (coming soon)
+method_c_info#:#This method is not available yet.
+method_d#:#D – (coming soon)
+method_d_info#:#This method is not available yet.
+method_e#:#E – (coming soon)
+method_e_info#:#This method is not available yet.
+method_f#:#F – (coming soon)
+method_f_info#:#This method is not available yet.
+method_g#:#G – (coming soon)
+method_g_info#:#This method is not available yet.
+method_h#:#H – (coming soon)
+method_h_info#:#This method is not available yet.
+method_i#:#I – (coming soon)
+method_i_info#:#This method is not available yet.
+method_j#:#J – (coming soon)
+method_j_info#:#This method is not available yet.
+method_not_available#:#This method is not available yet.
+assign_mode#:#Assignment
+mode_groups#:#Fixed number of groups
+mode_groups_info#:#Course members are distributed randomly and as evenly as possible to the given number of groups.
+mode_topics#:#Fixed number of topics
+mode_topics_info#:#One group is formed per topic. Course members are distributed randomly and as evenly as possible to the topics.
+num_groups#:#Number of groups
+num_groups_invalid#:#Please enter a number between 1 and %s.
+topics#:#Topics
+topics_info#:#One topic per line. The number of lines defines the number of groups.
+topics_invalid#:#Please enter at least one and at most %s topics (one topic per line).
+show_all_groups#:#Students see all groups
+show_all_groups_info#:#If checked, students see the complete group assignment after "Go". Otherwise they only see their own group.
+summary_groups#:#%s groups
+summary_topics#:#%s topics
+settings_locked_published#:#The assignment has been published. To change the groups, unpublish it first.
+status_draft#:#Not drawn yet
+status_drawn#:#Drawn (visible for lecturers only)
+status_published#:#Published (visible for students)
+course_members#:#Course members
+published_at#:#Published at
+groups#:#Groups
+group_title_n#:#Group %s
+group_empty#:#No members
+your_group#:#Your group
+not_assigned#:#Not assigned to a group yet
+no_longer_member#:#no longer in course
+deleted_user#:#Deleted user
+not_drawn_yet#:#No draw has been made yet. "Draw random assignment" gives you a preview, "Go" draws and publishes the assignment for the students.
+draw#:#Draw random assignment
+redraw#:#Draw again
+go#:#Go – publish assignment
+unpublish#:#Unpublish
+assign_latecomers#:#Assign new course members
+confirm_activate#:#Do you want to activate this group management? A currently active group management will be deactivated.
+confirm_deactivate#:#Do you want to deactivate this group management? Students will no longer see a group assignment.
+confirm_delete#:#Do you want to delete this group management including all groups and assignments?
+confirm_draw#:#Do you want to randomly assign the course members now? The assignment will not be visible for students yet.
+confirm_redraw#:#Do you want to draw again? The current assignment will be discarded.
+confirm_go#:#Do you want to publish the group assignment for the students now?
+confirm_go_draw_first#:#As no draw has been made yet, the course members will be randomly assigned first.
+confirm_go_activate#:#The group management will be activated as well (another active one will be deactivated).
+confirm_unpublish#:#Do you want to unpublish? The assignment is kept but no longer visible for students.
+confirm_assign_latecomers#:#Do you want to randomly assign the remaining course members to the smallest groups? Existing assignments remain unchanged.
+management_created#:#The group management has been created.
+management_auto_activated#:#As no group management was active, it has been activated.
+management_activated#:#The group management has been activated.
+management_deactivated#:#The group management has been deactivated.
+management_deleted#:#The group management has been deleted.
+management_not_found#:#The group management could not be found.
+already_published#:#The assignment has already been published. Please unpublish it first.
+edit_resets_draw_info#:#Attention: if you change the assignment (number of groups or topics), the current draw will be discarded.
+draw_reset#:#The current draw has been discarded because the assignment settings changed.
+draw_done#:#The course members have been assigned randomly. The assignment is not visible for students yet.
+go_done#:#The group assignment is now visible for the students.
+unpublish_done#:#The assignment has been unpublished.
+latecomers_assigned#:#%s course members have been assigned.
+unassigned_members_info#:#%s course members are not assigned to a group yet (e.g. because they joined after the draw).
+published_but_inactive#:#The assignment is published, but this group management is not active. Students will only see it once it is activated.
+more_groups_than_members#:#There are more groups than course members – some groups remain empty.
+no_parent_course#:#This object is not located inside a course. The group assignment requires a parent course.
+no_course_members#:#The parent course has no members.
+no_groups_configured#:#No groups or topics are configured.
+assignment_not_visible_yet#:#The group assignment has not been published yet.
+you_are_in_group#:#You are in: <strong>%s</strong>
+you_are_not_assigned#:#You are not assigned to a group.

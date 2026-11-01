@@ -1,0 +1,115 @@
+obj_xgrm#:#Gruppenmanagement
+objs_xgrm#:#Gruppenmanagements
+xgrm_new#:#Neues Gruppenmanagement-Objekt
+xgrm_add#:#Gruppenmanagement-Objekt anlegen
+obj_xgrm_select#:#Gruppenmanagement auswählen
+content#:#Inhalt
+properties#:#Einstellungen
+edit#:#Bearbeiten
+status#:#Status
+online#:#Online
+online_info#:#Nur wenn das Objekt online ist, können Studierende es sehen.
+offline#:#Offline
+object_offline_info#:#Dieses Objekt ist offline und für Studierende nicht sichtbar. Sie können es unter „Einstellungen“ online schalten.
+group_management#:#Gruppenmanagement
+active_management#:#Aktives Gruppenmanagement
+none#:#Keines
+managements#:#Gruppenmanagements
+new_management#:#Neues Gruppenmanagement
+no_managements#:#Es wurde noch kein Gruppenmanagement angelegt.
+student_view#:#Ansicht Studierende
+student_view_info#:#Vorschau: So sehen Studierende dieses Objekt.
+back_to_overview#:#Zurück zur Übersicht
+open#:#Öffnen
+edit_settings#:#Einstellungen bearbeiten
+activate#:#Aktivieren
+deactivate#:#Deaktivieren
+active#:#Aktiv
+mgmt_title#:#Titel
+method#:#Methode
+method_a#:#A – Zufallszuteilung durch Dozierende
+method_a_info#:#Die Dozierenden entscheiden: Die Mitglieder des übergeordneten Kurses werden nach dem Zufallsprinzip auf eine feste Anzahl Gruppen oder Themen verteilt. Die Einteilung wird erst nach „Go“ für die Studierenden sichtbar.
+method_b#:#B – (in Vorbereitung)
+method_b_info#:#Diese Methode ist noch nicht verfügbar.
+method_c#:#C – (in Vorbereitung)
+method_c_info#:#Diese Methode ist noch nicht verfügbar.
+method_d#:#D – (in Vorbereitung)
+method_d_info#:#Diese Methode ist noch nicht verfügbar.
+method_e#:#E – (in Vorbereitung)
+method_e_info#:#Diese Methode ist noch nicht verfügbar.
+method_f#:#F – (in Vorbereitung)
+method_f_info#:#Diese Methode ist noch nicht verfügbar.
+method_g#:#G – (in Vorbereitung)
+method_g_info#:#Diese Methode ist noch nicht verfügbar.
+method_h#:#H – (in Vorbereitung)
+method_h_info#:#Diese Methode ist noch nicht verfügbar.
+method_i#:#I – (in Vorbereitung)
+method_i_info#:#Diese Methode ist noch nicht verfügbar.
+method_j#:#J – (in Vorbereitung)
+method_j_info#:#Diese Methode ist noch nicht verfügbar.
+method_not_available#:#Diese Methode ist noch nicht verfügbar.
+assign_mode#:#Einteilung
+mode_groups#:#Feste Anzahl Gruppen
+mode_groups_info#:#Die Kursmitglieder werden zufällig und möglichst gleichmässig auf die angegebene Anzahl Gruppen verteilt.
+mode_topics#:#Feste Anzahl Themen
+mode_topics_info#:#Pro Thema wird eine Gruppe gebildet. Die Kursmitglieder werden zufällig und möglichst gleichmässig auf die Themen verteilt.
+num_groups#:#Anzahl Gruppen
+num_groups_invalid#:#Bitte eine Anzahl zwischen 1 und %s angeben.
+topics#:#Themen
+topics_info#:#Ein Thema pro Zeile. Die Anzahl Zeilen bestimmt die Anzahl Gruppen.
+topics_invalid#:#Bitte mindestens ein und höchstens %s Themen angeben (ein Thema pro Zeile).
+show_all_groups#:#Studierende sehen alle Gruppen
+show_all_groups_info#:#Wenn aktiviert, sehen Studierende nach „Go“ die gesamte Gruppeneinteilung. Sonst sehen sie nur die eigene Gruppe.
+summary_groups#:#%s Gruppen
+summary_topics#:#%s Themen
+settings_locked_published#:#Die Einteilung ist freigegeben. Um die Gruppen zu ändern, zuerst die Freigabe zurücknehmen.
+status_draft#:#Noch nicht ausgelost
+status_drawn#:#Ausgelost (nur für Dozierende sichtbar)
+status_published#:#Freigegeben (für Studierende sichtbar)
+course_members#:#Kursmitglieder
+published_at#:#Freigegeben am
+groups#:#Gruppen
+group_title_n#:#Gruppe %s
+group_empty#:#Keine Mitglieder
+your_group#:#Ihre Gruppe
+not_assigned#:#Noch keiner Gruppe zugeteilt
+no_longer_member#:#nicht mehr im Kurs
+deleted_user#:#Gelöschter Benutzer
+not_drawn_yet#:#Es wurde noch nicht ausgelost. Mit „Zufallszuteilung durchführen“ erhalten Sie eine Vorschau, mit „Go“ wird ausgelost und die Einteilung für die Studierenden freigegeben.
+draw#:#Zufallszuteilung durchführen
+redraw#:#Neu auslosen
+go#:#Go – Einteilung freigeben
+unpublish#:#Freigabe zurücknehmen
+assign_latecomers#:#Neue Kursmitglieder zuteilen
+confirm_activate#:#Soll dieses Gruppenmanagement aktiviert werden? Ein bisher aktives Gruppenmanagement wird dabei deaktiviert.
+confirm_deactivate#:#Soll dieses Gruppenmanagement deaktiviert werden? Studierende sehen dann keine Gruppeneinteilung mehr.
+confirm_delete#:#Soll dieses Gruppenmanagement inklusive aller Gruppen und Zuteilungen gelöscht werden?
+confirm_draw#:#Sollen die Kursmitglieder jetzt zufällig zugeteilt werden? Die Einteilung ist noch nicht für Studierende sichtbar.
+confirm_redraw#:#Soll neu ausgelost werden? Die bisherige Einteilung wird verworfen.
+confirm_go#:#Soll die Gruppeneinteilung jetzt für die Studierenden freigegeben werden?
+confirm_go_draw_first#:#Da noch nicht ausgelost wurde, werden die Kursmitglieder zuerst zufällig zugeteilt.
+confirm_go_activate#:#Das Gruppenmanagement wird dabei aktiviert (ein anderes aktives wird deaktiviert).
+confirm_unpublish#:#Soll die Freigabe zurückgenommen werden? Die Einteilung bleibt erhalten, ist aber für Studierende nicht mehr sichtbar.
+confirm_assign_latecomers#:#Sollen die noch nicht zugeteilten Kursmitglieder zufällig auf die kleinsten Gruppen verteilt werden? Bestehende Zuteilungen bleiben unverändert.
+management_created#:#Das Gruppenmanagement wurde angelegt.
+management_auto_activated#:#Da noch kein Gruppenmanagement aktiv war, wurde es aktiviert.
+management_activated#:#Das Gruppenmanagement wurde aktiviert.
+management_deactivated#:#Das Gruppenmanagement wurde deaktiviert.
+management_deleted#:#Das Gruppenmanagement wurde gelöscht.
+management_not_found#:#Das Gruppenmanagement wurde nicht gefunden.
+already_published#:#Die Einteilung ist bereits freigegeben. Bitte zuerst die Freigabe zurücknehmen.
+edit_resets_draw_info#:#Achtung: Wenn Sie die Einteilung (Anzahl Gruppen bzw. Themen) ändern, wird die bisherige Auslosung verworfen.
+draw_reset#:#Die bisherige Auslosung wurde verworfen, da die Einteilung geändert wurde.
+draw_done#:#Die Kursmitglieder wurden zufällig zugeteilt. Die Einteilung ist noch nicht für Studierende sichtbar.
+go_done#:#Die Gruppeneinteilung ist jetzt für die Studierenden sichtbar.
+unpublish_done#:#Die Freigabe wurde zurückgenommen.
+latecomers_assigned#:#%s Kursmitglieder wurden zugeteilt.
+unassigned_members_info#:#%s Kursmitglieder sind noch keiner Gruppe zugeteilt (z. B. weil sie nach der Auslosung beigetreten sind).
+published_but_inactive#:#Die Einteilung ist freigegeben, aber dieses Gruppenmanagement ist nicht aktiv. Studierende sehen sie erst, wenn es aktiviert wird.
+more_groups_than_members#:#Es gibt mehr Gruppen als Kursmitglieder – einige Gruppen bleiben leer.
+no_parent_course#:#Dieses Objekt liegt nicht in einem Kurs. Die Gruppeneinteilung benötigt einen übergeordneten Kurs.
+no_course_members#:#Der übergeordnete Kurs hat keine Mitglieder.
+no_groups_configured#:#Es sind keine Gruppen bzw. Themen konfiguriert.
+assignment_not_visible_yet#:#Die Gruppeneinteilung ist noch nicht freigegeben.
+you_are_in_group#:#Sie sind in: <strong>%s</strong>
+you_are_not_assigned#:#Sie sind keiner Gruppe zugeteilt.

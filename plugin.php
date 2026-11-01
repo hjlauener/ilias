@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * GroupManagement – ILIAS repository object plugin
+ *
+ * Lets lecturers distribute the members of the parent course into groups
+ * using one of several assignment methods (a–j). Only one method can be
+ * active per object at a time.
+ */
+
+$id = "xgrm";
+
+// code version; must be changed for all code changes
+$version = "0.1.0";
+
+// ilias min and max version; must always reflect the versions that should
+// run with the plugin
+$ilias_min_version = "9.0";
+$ilias_max_version = "9.999";
+
+// optional, but useful: Add one or more responsible persons and a contact email
+$responsible = "Hansjörg Lauener";
+$responsible_mail = "hansjoerg.lauener@gmail.com";
+
+$learning_progress = false;
+$supports_export = false;
