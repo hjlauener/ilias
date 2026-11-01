@@ -5,6 +5,7 @@ declare(strict_types=1);
 use ILIAS\HTTP\Wrapper\ArrayBasedRequestWrapper;
 use ILIAS\Refinery\Factory as Refinery;
 use ILIAS\UI\Component\Component;
+use ILIAS\UI\Component\Modal\Interruptive;
 
 /**
  * GUI class of the GroupManagement repository object.
@@ -23,6 +24,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private const TAB_PROPERTIES = "properties";
 
     private const PARAM_MGMT_ID = "mgmt_id";
+    /** after an action: back to the detail view instead of the overview */
+    private const PARAM_RETURN = "grm_return";
+    private const RETURN_DETAIL = "detail";
 
     /** Commands that need write permission */
     private const WRITE_COMMANDS = [
@@ -33,18 +37,12 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "editManagement",
         "updateManagement",
         "showManagement",
-        "confirmActivateManagement",
         "activateManagement",
-        "confirmDeactivateManagement",
         "deactivateManagement",
         "deleteManagement",
-        "confirmDrawManagement",
         "drawManagement",
-        "confirmGoManagement",
         "goManagement",
-        "confirmUnpublishManagement",
         "unpublishManagement",
-        "confirmAssignLatecomers",
         "assignLatecomers",
     ];
 
@@ -254,16 +252,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                     $this->linkTo("editManagement", $mgmt)
                 );
             }
-            if ($mgmt->isActive()) {
-                $actions[] = $this->ui_factory->button()->shy(
-                    $this->txt("deactivate"),
-                    $this->linkTo("confirmDeactivateManagement", $mgmt)
-                );
-            } elseif (ilGrmMethods::isImplemented($mgmt->getMethod())) {
-                $actions[] = $this->ui_factory->button()->shy(
-                    $this->txt("activate"),
-                    $this->linkTo("confirmActivateManagement", $mgmt)
-                );
+            $toggle_modal = $this->buildActivationModal($mgmt, false);
+            if ($toggle_modal !== null) {
+                $modals[] = $toggle_modal;
+                $actions[] = $this->ui_factory->button()->shy($toggle_modal->getActionButtonLabel() ?? "", "")
+                    ->withOnClick($toggle_modal->getShowSignal());
             }
             $delete_modal = $this->buildDeleteModal($mgmt);
             $modals[] = $delete_modal;
@@ -304,41 +297,57 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->ctrl->getLinkTarget($this, "showContent")
         ));
 
+        /** @var Interruptive[] $modals */
+        $modals = [];
+
         if (!$mgmt->isPublished()) {
             $this->toolbar->addComponent($f->button()->standard(
                 $this->txt("edit_settings"),
                 $this->linkTo("editManagement", $mgmt)
             ));
-            $this->toolbar->addComponent($f->button()->standard(
-                $mgmt->isDrawn() ? $this->txt("redraw") : $this->txt("draw"),
-                $this->linkTo("confirmDrawManagement", $mgmt)
-            ));
-            $this->toolbar->addComponent($f->button()->primary(
-                $this->txt("go"),
-                $this->linkTo("confirmGoManagement", $mgmt)
-            ));
+
+            $draw_label = $mgmt->isDrawn() ? $this->txt("redraw") : $this->txt("draw");
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $mgmt->isDrawn() ? $this->txt("confirm_redraw") : $this->txt("confirm_draw"),
+                "drawManagement",
+                $draw_label
+            );
+            $this->toolbar->addComponent($f->button()->standard($draw_label, "")->withOnClick($modal->getShowSignal()));
+
+            $go_message = $this->txt("confirm_go");
+            if (!$mgmt->isDrawn()) {
+                $go_message .= " " . $this->txt("confirm_go_draw_first");
+            }
+            if (!$mgmt->isActive()) {
+                $go_message .= " " . $this->txt("confirm_go_activate");
+            }
+            $modals[] = $modal = $this->buildConfirmModal($mgmt, $go_message, "goManagement", $this->txt("go"));
+            $this->toolbar->addComponent($f->button()->primary($this->txt("go"), "")->withOnClick($modal->getShowSignal()));
         } else {
-            $this->toolbar->addComponent($f->button()->standard(
-                $this->txt("unpublish"),
-                $this->linkTo("confirmUnpublishManagement", $mgmt)
-            ));
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_unpublish"),
+                "unpublishManagement",
+                $this->txt("unpublish")
+            );
+            $this->toolbar->addComponent(
+                $f->button()->standard($this->txt("unpublish"), "")->withOnClick($modal->getShowSignal())
+            );
         }
 
-        if ($mgmt->isActive()) {
-            $this->toolbar->addComponent($f->button()->standard(
-                $this->txt("deactivate"),
-                $this->linkTo("confirmDeactivateManagement", $mgmt)
-            ));
-        } elseif (ilGrmMethods::isImplemented($mgmt->getMethod())) {
-            $this->toolbar->addComponent($f->button()->standard(
-                $this->txt("activate"),
-                $this->linkTo("confirmActivateManagement", $mgmt)
-            ));
+        $toggle_modal = $this->buildActivationModal($mgmt, true);
+        if ($toggle_modal !== null) {
+            $modals[] = $toggle_modal;
+            $this->toolbar->addComponent(
+                $f->button()->standard($toggle_modal->getActionButtonLabel() ?? "", "")
+                    ->withOnClick($toggle_modal->getShowSignal())
+            );
         }
 
-        $delete_modal = $this->buildDeleteModal($mgmt);
+        $modals[] = $modal = $this->buildDeleteModal($mgmt);
         $this->toolbar->addComponent(
-            $f->button()->standard($this->lng->txt("delete"), "")->withOnClick($delete_modal->getShowSignal())
+            $f->button()->standard($this->lng->txt("delete"), "")->withOnClick($modal->getShowSignal())
         );
 
         $groups = $this->grm_repo->getGroups($mgmt->getId());
@@ -351,10 +360,15 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 "info",
                 sprintf($this->txt("unassigned_members_info"), count($unassigned))
             );
-            $this->toolbar->addComponent($f->button()->standard(
-                $this->txt("assign_latecomers"),
-                $this->linkTo("confirmAssignLatecomers", $mgmt)
-            ));
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_assign_latecomers"),
+                "assignLatecomers",
+                $this->txt("assign_latecomers")
+            );
+            $this->toolbar->addComponent(
+                $f->button()->standard($this->txt("assign_latecomers"), "")->withOnClick($modal->getShowSignal())
+            );
         }
 
         if ($mgmt->isPublished() && !$mgmt->isActive()) {
@@ -393,7 +407,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         } else {
             $components[] = $f->messageBox()->info($this->txt("not_drawn_yet"));
         }
-        $components[] = $delete_modal;
+        $components = array_merge($components, $modals);
 
         $this->tpl->setContent($this->ui_renderer->render($components));
     }
@@ -718,12 +732,6 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     // Activation (only one active management per object)
     // ------------------------------------------------------------------
 
-    private function confirmActivateManagement(): void
-    {
-        $mgmt = $this->requireManagement();
-        $this->showConfirmation($mgmt, $this->txt("confirm_activate"), "activateManagement", $this->txt("activate"));
-    }
-
     private function activateManagement(): void
     {
         $mgmt = $this->requireManagement();
@@ -733,13 +741,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
         $this->grm_repo->activate($mgmt);
         $this->tpl->setOnScreenMessage("success", $this->txt("management_activated"), true);
-        $this->ctrl->redirect($this, "showContent");
-    }
-
-    private function confirmDeactivateManagement(): void
-    {
-        $mgmt = $this->requireManagement();
-        $this->showConfirmation($mgmt, $this->txt("confirm_deactivate"), "deactivateManagement", $this->txt("deactivate"));
+        $this->redirectAfterAction($mgmt);
     }
 
     private function deactivateManagement(): void
@@ -747,35 +749,21 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $mgmt = $this->requireManagement();
         $this->grm_repo->deactivate($mgmt);
         $this->tpl->setOnScreenMessage("success", $this->txt("management_deactivated"), true);
-        $this->ctrl->redirect($this, "showContent");
+        $this->redirectAfterAction($mgmt);
     }
 
     // ------------------------------------------------------------------
     // Delete
     // ------------------------------------------------------------------
 
-    /**
-     * Confirmation overlay (interruptive modal), same as when deleting a
-     * repository object. Trigger it with ->withOnClick($modal->getShowSignal()).
-     */
-    private function buildDeleteModal(ilGrmManagement $mgmt): \ILIAS\UI\Component\Modal\Interruptive
+    private function buildDeleteModal(ilGrmManagement $mgmt): Interruptive
     {
-        $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
-        $form_action = $this->ctrl->getFormAction($this, "deleteManagement");
-        $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
-
-        return $this->ui_factory->modal()->interruptive(
-            $this->txt("delete_management"),
+        return $this->buildConfirmModal(
+            $mgmt,
             $this->txt("confirm_delete"),
-            $form_action
-        )->withAffectedItems([
-            $this->ui_factory->modal()->interruptiveItem()->standard(
-                (string) $mgmt->getId(),
-                $this->esc($mgmt->getTitle()),
-                null,
-                $this->txt("method_" . $mgmt->getMethod())
-            ),
-        ]);
+            "deleteManagement",
+            $this->lng->txt("delete")
+        );
     }
 
     private function deleteManagement(): void
@@ -790,18 +778,6 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     // Method a: random draw, "Go", unpublish, latecomers
     // ------------------------------------------------------------------
 
-    private function confirmDrawManagement(): void
-    {
-        $mgmt = $this->requireManagement();
-        $this->requireNotPublished($mgmt);
-        $this->showConfirmation(
-            $mgmt,
-            $mgmt->isDrawn() ? $this->txt("confirm_redraw") : $this->txt("confirm_draw"),
-            "drawManagement",
-            $mgmt->isDrawn() ? $this->txt("redraw") : $this->txt("draw")
-        );
-    }
-
     private function drawManagement(): void
     {
         $mgmt = $this->requireManagement();
@@ -811,21 +787,6 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->tpl->setOnScreenMessage("success", $this->txt("draw_done"), true);
         }
         $this->redirectTo("showManagement", $mgmt);
-    }
-
-    private function confirmGoManagement(): void
-    {
-        $mgmt = $this->requireManagement();
-        $this->requireNotPublished($mgmt);
-
-        $question = $this->txt("confirm_go");
-        if (!$mgmt->isDrawn()) {
-            $question .= " " . $this->txt("confirm_go_draw_first");
-        }
-        if (!$mgmt->isActive()) {
-            $question .= " " . $this->txt("confirm_go_activate");
-        }
-        $this->showConfirmation($mgmt, $question, "goManagement", $this->txt("go"));
     }
 
     /**
@@ -856,12 +817,6 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $this->redirectTo("showManagement", $mgmt);
     }
 
-    private function confirmUnpublishManagement(): void
-    {
-        $mgmt = $this->requireManagement();
-        $this->showConfirmation($mgmt, $this->txt("confirm_unpublish"), "unpublishManagement", $this->txt("unpublish"));
-    }
-
     private function unpublishManagement(): void
     {
         $mgmt = $this->requireManagement();
@@ -872,17 +827,6 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->tpl->setOnScreenMessage("success", $this->txt("unpublish_done"), true);
         }
         $this->redirectTo("showManagement", $mgmt);
-    }
-
-    private function confirmAssignLatecomers(): void
-    {
-        $mgmt = $this->requireManagement();
-        $this->showConfirmation(
-            $mgmt,
-            $this->txt("confirm_assign_latecomers"),
-            "assignLatecomers",
-            $this->txt("assign_latecomers")
-        );
     }
 
     /**
@@ -1046,25 +990,75 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $this->ctrl->redirect($this, $cmd);
     }
 
-    private function showConfirmation(
+    /**
+     * Confirmation overlay (interruptive modal), same as when deleting a
+     * repository object. Open it with ->withOnClick($modal->getShowSignal())
+     * and render the modal together with the page content.
+     */
+    private function buildConfirmModal(
         ilGrmManagement $mgmt,
-        string $question,
-        string $confirm_cmd,
-        string $confirm_txt
-    ): void {
-        $this->tabs->activateTab(self::TAB_CONTENT);
-
+        string $message,
+        string $cmd,
+        string $action_label,
+        bool $return_to_detail = false
+    ): Interruptive {
         $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
-        $confirmation = new ilConfirmationGUI();
-        $confirmation->setFormAction($this->ctrl->getFormAction($this));
+        if ($return_to_detail) {
+            $this->ctrl->setParameter($this, self::PARAM_RETURN, self::RETURN_DETAIL);
+        }
+        $form_action = $this->ctrl->getFormAction($this, $cmd);
         $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
+        $this->ctrl->clearParameterByClass(self::class, self::PARAM_RETURN);
 
-        $confirmation->setHeaderText($question);
-        $confirmation->addItem("mgmt_ids", (string) $mgmt->getId(), $this->esc($mgmt->getTitle()));
-        $confirmation->setConfirm($confirm_txt, $confirm_cmd);
-        $confirmation->setCancel($this->lng->txt("cancel"), "showManagement");
+        return $this->ui_factory->modal()->interruptive(
+            $this->txt("confirm"),
+            $message,
+            $form_action
+        )->withAffectedItems([
+            $this->ui_factory->modal()->interruptiveItem()->standard(
+                (string) $mgmt->getId(),
+                $this->esc($mgmt->getTitle()),
+                null,
+                $this->txt("method_" . $mgmt->getMethod())
+            ),
+        ])->withActionButtonLabel($action_label);
+    }
 
-        $this->tpl->setContent($confirmation->getHTML());
+    /**
+     * Overlay for "activate" or "deactivate" (null if the method cannot be activated).
+     */
+    private function buildActivationModal(ilGrmManagement $mgmt, bool $return_to_detail): ?Interruptive
+    {
+        if ($mgmt->isActive()) {
+            return $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_deactivate"),
+                "deactivateManagement",
+                $this->txt("deactivate"),
+                $return_to_detail
+            );
+        }
+        if (!ilGrmMethods::isImplemented($mgmt->getMethod())) {
+            return null;
+        }
+        return $this->buildConfirmModal(
+            $mgmt,
+            $this->txt("confirm_activate"),
+            "activateManagement",
+            $this->txt("activate"),
+            $return_to_detail
+        );
+    }
+
+    private function redirectAfterAction(ilGrmManagement $mgmt): void
+    {
+        $return = $this->grm_query->has(self::PARAM_RETURN)
+            ? $this->grm_query->retrieve(self::PARAM_RETURN, $this->grm_refinery->kindlyTo()->string())
+            : "";
+        if ($return === self::RETURN_DETAIL) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        $this->ctrl->redirect($this, "showContent");
     }
 
     /**
