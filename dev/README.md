@@ -26,14 +26,19 @@ docker compose up -d
 **Variante B – ohne Mount:** nichts tun. Das Skript erkennt das und kopiert
 den Code bei jedem Reload in den Container.
 
-### 3. Plugin installieren
+### 3. Terminal-Befehl `grm` installieren
 
 ```bash
-cd ~/Projekte/GroupManagement
+~/Projekte/GroupManagement/dev/install-command.sh
 ```
 
+Danach ein neues Terminal-Fenster öffnen. Ab jetzt holt `grm` (in jedem
+Ordner) den neusten Stand von GitHub und lädt das Plugin im Docker-ILIAS neu.
+
+### 4. Plugin installieren
+
 ```bash
-./dev/reload.sh install
+grm install
 ```
 
 Falls die Installation per Kommandozeile scheitert: in ILIAS unter
@@ -45,7 +50,7 @@ Das Skript sucht den ILIAS-Container automatisch (den Container, in dem
 `dev/config.env` kopieren und `CONTAINER` / `ILIAS_DIR` eintragen
 (Containername siehe `docker ps`).
 
-### 4. Testdaten in ILIAS
+### 5. Testdaten in ILIAS
 
 - Einen Kurs anlegen und ein paar Testbenutzer als **Mitglieder** aufnehmen.
 - Im Kurs *Neues Objekt hinzufügen → Gruppenmanagement*.
@@ -56,10 +61,9 @@ Das Skript sucht den ILIAS-Container automatisch (den Container, in dem
 ## Täglicher Ablauf (zusammen mit Claude)
 
 1. Claude ändert den Code und pusht auf den Branch.
-2. Du klickst im Finder doppelt auf **`dev/GroupManagement neu laden.command`**.
-   Das holt den neusten Stand (`git pull`) und lädt das Plugin im lokalen
-   ILIAS neu.
-   - Beim ersten Doppelklick fragt macOS evtl. nach: Rechtsklick → *Öffnen*.
+2. Du tippst im Terminal **`grm`** – oder klickst im Finder doppelt auf
+   `dev/GroupManagement neu laden.command`. Das holt den neusten Stand
+   (`git pull`) und lädt das Plugin im lokalen ILIAS neu.
 3. Seite im Browser neu laden und testen. Rückmeldungen und Fehlermeldungen
    (Screenshot oder Text) an Claude schicken.
 
@@ -67,7 +71,7 @@ Wenn du selbst am Code arbeitest, lädt dieser Befehl bei jeder gespeicherten
 Datei automatisch neu (vorher einmal `brew install fswatch`):
 
 ```bash
-./dev/reload.sh --watch
+grm --watch
 ```
 
 ## Was „neu laden“ macht
@@ -83,24 +87,24 @@ Datei automatisch neu (vorher einmal `brew install fswatch`):
 ## Weitere Befehle
 
 ```bash
-./dev/reload.sh status
+grm status
 ```
 
 ```bash
-./dev/reload.sh logs
+grm logs
 ```
 
 ```bash
-./dev/reload.sh shell
+grm shell
 ```
 
 ## Fehlersuche
 
-- **Weisse Seite / Fehler 500:** `./dev/reload.sh logs` zeigt die PHP-Fehler
+- **Weisse Seite / Fehler 500:** `grm logs` zeigt die PHP-Fehler
   (je nach Image). ILIAS schreibt Fehler ausserdem in sein Log-Verzeichnis
   (siehe `ilias.ini.php`, Abschnitt `[log]`).
 - **„Plugin-Update fehlgeschlagen“** beim ersten Mal: Plugin ist noch nicht
-  installiert → `./dev/reload.sh install`.
+  installiert → `grm install`.
 - **Sprachtexte erscheinen als `-rep_robj_xgrm_...-`:** neu laden. Hilft das
   nicht, unter *Administration → Plugins → GroupManagement → Sprachen
   aktualisieren*.
