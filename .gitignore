@@ -3,3 +3,4 @@
 .DS_Store
 /dev/config.env
 .mount-check-*
+/dev/logs/

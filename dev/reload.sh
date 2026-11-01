@@ -369,8 +369,26 @@ do_error() { # $1 = Fehlercode (optional)
         [ -n "$file" ] || die "Keine Fehlerlogs in $dir."
     fi
 
-    step "Fehlerlog: $file"
-    in_root sed -n '1,200p' "$file"
+    local out_dir="$SCRIPT_DIR/logs" local_file
+    mkdir -p "$out_dir"
+    local_file="$out_dir/$(basename "$file")"
+    in_root cat "$file" | mask_secrets > "$local_file"
+
+    step "Fehlerlog: $file (Anfang)"
+    head -n 60 "$local_file"
+    echo "…"
+    ok "Vollständiges Log (Passwörter ausgeblendet): $local_file"
+    if command -v pbcopy >/dev/null 2>&1; then
+        head -n 150 "$local_file" | pbcopy
+        ok "Die ersten 150 Zeilen sind in der Zwischenablage – im Chat einfach mit Cmd+V einfügen."
+    fi
+}
+
+# Passwörter, Tokens, Session-Cookies in Logausgaben ausblenden
+mask_secrets() {
+    sed -E \
+        -e 's/^([^:=]*(PASSWORD|PASSWD|SECRET|TOKEN|_PW|password|passwd|secret|token)[^:=]*[:=][[:space:]]*).*/\1*****/' \
+        -e 's/((PHPSESSID|ilClientId|SESSID)[^A-Za-z0-9]+)[A-Za-z0-9,_-]+/\1*****/g'
 }
 
 do_ilias_log() {
