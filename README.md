@@ -57,6 +57,11 @@ gewünschten Rollen vergeben.
 Neu angelegte Objekte sind **offline**; unter *Einstellungen* online schalten,
 damit Studierende sie sehen.
 
+## Lokale Entwicklung (ILIAS in Docker)
+
+Siehe [`dev/README.md`](dev/README.md): ein Skript holt den neusten Stand und lädt
+das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.command`).
+
 ## Aufbau
 
 | Datei | Zweck |

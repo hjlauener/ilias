@@ -1,0 +1,9 @@
+# Beispiel: Plugin-Ordner live in den ILIAS-Container mounten.
+# Als docker-compose.override.yml neben deine ILIAS-docker-compose.yml legen,
+# Service-Namen und Pfade anpassen, dann: docker compose up -d
+services:
+  ilias:                       # <- Name des ILIAS-Service in deiner docker-compose.yml
+    volumes:
+      # links:  Pfad zu diesem Repository auf dem Mac
+      # rechts: <ILIAS-Verzeichnis im Container>/Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement
+      - ~/Projekte/GroupManagement:/var/www/html/Customizing/global/plugins/Services/Repository/RepositoryObject/GroupManagement
