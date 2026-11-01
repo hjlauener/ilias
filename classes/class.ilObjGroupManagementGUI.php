@@ -37,7 +37,6 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "activateManagement",
         "confirmDeactivateManagement",
         "deactivateManagement",
-        "confirmDeleteManagement",
         "deleteManagement",
         "confirmDrawManagement",
         "drawManagement",
@@ -241,6 +240,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
 
         $items = [];
+        $modals = [];
         foreach ($managements as $mgmt) {
             $actions = [
                 $this->ui_factory->button()->shy(
@@ -265,10 +265,10 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                     $this->linkTo("confirmActivateManagement", $mgmt)
                 );
             }
-            $actions[] = $this->ui_factory->button()->shy(
-                $this->lng->txt("delete"),
-                $this->linkTo("confirmDeleteManagement", $mgmt)
-            );
+            $delete_modal = $this->buildDeleteModal($mgmt);
+            $modals[] = $delete_modal;
+            $actions[] = $this->ui_factory->button()->shy($this->lng->txt("delete"), "")
+                ->withOnClick($delete_modal->getShowSignal());
 
             $title = $this->esc($mgmt->getTitle());
             if ($mgmt->isActive()) {
@@ -286,7 +286,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             [$this->ui_factory->item()->group("", $items)]
         );
 
-        $this->tpl->setContent($this->ui_renderer->render($panel));
+        $this->tpl->setContent($this->ui_renderer->render(array_merge([$panel], $modals)));
     }
 
     /**
@@ -335,6 +335,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 $this->linkTo("confirmActivateManagement", $mgmt)
             ));
         }
+
+        $delete_modal = $this->buildDeleteModal($mgmt);
+        $this->toolbar->addComponent(
+            $f->button()->standard($this->lng->txt("delete"), "")->withOnClick($delete_modal->getShowSignal())
+        );
 
         $groups = $this->grm_repo->getGroups($mgmt->getId());
         $assignments = $this->grm_repo->getAssignments($mgmt->getId());
@@ -388,6 +393,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         } else {
             $components[] = $f->messageBox()->info($this->txt("not_drawn_yet"));
         }
+        $components[] = $delete_modal;
 
         $this->tpl->setContent($this->ui_renderer->render($components));
     }
@@ -748,10 +754,28 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     // Delete
     // ------------------------------------------------------------------
 
-    private function confirmDeleteManagement(): void
+    /**
+     * Confirmation overlay (interruptive modal), same as when deleting a
+     * repository object. Trigger it with ->withOnClick($modal->getShowSignal()).
+     */
+    private function buildDeleteModal(ilGrmManagement $mgmt): \ILIAS\UI\Component\Modal\Interruptive
     {
-        $mgmt = $this->requireManagement();
-        $this->showConfirmation($mgmt, $this->txt("confirm_delete"), "deleteManagement", $this->lng->txt("delete"));
+        $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
+        $form_action = $this->ctrl->getFormAction($this, "deleteManagement");
+        $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
+
+        return $this->ui_factory->modal()->interruptive(
+            $this->txt("delete_management"),
+            $this->txt("confirm_delete"),
+            $form_action
+        )->withAffectedItems([
+            $this->ui_factory->modal()->interruptiveItem()->standard(
+                (string) $mgmt->getId(),
+                $this->esc($mgmt->getTitle()),
+                null,
+                $this->txt("method_" . $mgmt->getMethod())
+            ),
+        ]);
     }
 
     private function deleteManagement(): void

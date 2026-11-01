@@ -84,6 +84,7 @@ assign_latecomers#:#Assign new course members
 confirm_activate#:#Do you want to activate this group management? A currently active group management will be deactivated.
 confirm_deactivate#:#Do you want to deactivate this group management? Students will no longer see a group assignment.
 confirm_delete#:#Do you want to delete this group management including all groups and assignments?
+delete_management#:#Delete Group Management
 confirm_draw#:#Do you want to randomly assign the course members now? The assignment will not be visible for students yet.
 confirm_redraw#:#Do you want to draw again? The current assignment will be discarded.
 confirm_go#:#Do you want to publish the group assignment for the students now?
