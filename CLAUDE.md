@@ -23,6 +23,8 @@ diff <(cut -d'#' -f1 lang/ilias_de.lang) <(cut -d'#' -f1 lang/ilias_en.lang)
 - Alle Rückfragen (Löschen, Aktivieren, Auslosen, Los, …) als Overlay wie im
   ILIAS-Kern (Interruptive Modal) über `buildConfirmModal()` in
   `ilObjGroupManagementGUI` – keine eigenen Bestätigungsseiten.
+- Ausnahme: Aktivieren/Deaktivieren ist ein Umschalter ohne Rückfrage
+  (`getActivationToggle()`), die Aktion wird sofort ausgeführt.
 - Nur UI-Aufrufe verwenden, die in ILIAS 9, 10 und 11 gleich sind
   (z.B. kein `$f->legacy(...)`, dessen Signatur sich in ILIAS 11 geändert hat).
 

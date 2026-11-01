@@ -252,11 +252,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                     $this->linkTo("editManagement", $mgmt)
                 );
             }
-            $toggle_modal = $this->buildActivationModal($mgmt, false);
-            if ($toggle_modal !== null) {
-                $modals[] = $toggle_modal;
-                $actions[] = $this->ui_factory->button()->shy($toggle_modal->getActionButtonLabel() ?? "", "")
-                    ->withOnClick($toggle_modal->getShowSignal());
+            $toggle = $this->getActivationToggle($mgmt, false);
+            if ($toggle !== null) {
+                $actions[] = $this->ui_factory->button()->shy($toggle[0], $toggle[1]);
             }
             $delete_modal = $this->buildDeleteModal($mgmt);
             $modals[] = $delete_modal;
@@ -336,13 +334,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             );
         }
 
-        $toggle_modal = $this->buildActivationModal($mgmt, true);
-        if ($toggle_modal !== null) {
-            $modals[] = $toggle_modal;
-            $this->toolbar->addComponent(
-                $f->button()->standard($toggle_modal->getActionButtonLabel() ?? "", "")
-                    ->withOnClick($toggle_modal->getShowSignal())
-            );
+        $toggle = $this->getActivationToggle($mgmt, true);
+        if ($toggle !== null) {
+            $this->toolbar->addComponent($f->button()->standard($toggle[0], $toggle[1]));
         }
 
         $modals[] = $modal = $this->buildDeleteModal($mgmt);
@@ -1025,29 +1019,30 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
-     * Overlay for "activate" or "deactivate" (null if the method cannot be activated).
+     * Toggle "activate" / "deactivate": no confirmation, the action is
+     * executed immediately.
+     *
+     * @return array{0: string, 1: string}|null [label, url]; null if the method cannot be activated
      */
-    private function buildActivationModal(ilGrmManagement $mgmt, bool $return_to_detail): ?Interruptive
+    private function getActivationToggle(ilGrmManagement $mgmt, bool $return_to_detail): ?array
     {
         if ($mgmt->isActive()) {
-            return $this->buildConfirmModal(
-                $mgmt,
-                $this->txt("confirm_deactivate"),
-                "deactivateManagement",
-                $this->txt("deactivate"),
-                $return_to_detail
-            );
-        }
-        if (!ilGrmMethods::isImplemented($mgmt->getMethod())) {
+            $label = $this->txt("deactivate");
+            $cmd = "deactivateManagement";
+        } elseif (ilGrmMethods::isImplemented($mgmt->getMethod())) {
+            $label = $this->txt("activate");
+            $cmd = "activateManagement";
+        } else {
             return null;
         }
-        return $this->buildConfirmModal(
-            $mgmt,
-            $this->txt("confirm_activate"),
-            "activateManagement",
-            $this->txt("activate"),
-            $return_to_detail
-        );
+
+        if ($return_to_detail) {
+            $this->ctrl->setParameter($this, self::PARAM_RETURN, self::RETURN_DETAIL);
+        }
+        $url = $this->linkTo($cmd, $mgmt);
+        $this->ctrl->clearParameterByClass(self::class, self::PARAM_RETURN);
+
+        return [$label, $url];
     }
 
     private function redirectAfterAction(ilGrmManagement $mgmt): void

@@ -82,8 +82,6 @@ go#:#Los – Einteilung freigeben
 unpublish#:#Freigabe zurücknehmen
 assign_latecomers#:#Neue Kursmitglieder zuteilen
 confirm#:#Bestätigen
-confirm_activate#:#Soll dieses Gruppenmanagement aktiviert werden? Ein bisher aktives Gruppenmanagement wird dabei deaktiviert.
-confirm_deactivate#:#Soll dieses Gruppenmanagement deaktiviert werden? Studierende sehen dann keine Gruppeneinteilung mehr.
 confirm_delete#:#Soll dieses Gruppenmanagement inklusive aller Gruppen und Zuteilungen gelöscht werden?
 confirm_draw#:#Sollen die Kursmitglieder jetzt zufällig zugeteilt werden? Die Einteilung ist noch nicht für Studierende sichtbar.
 confirm_redraw#:#Soll neu ausgelost werden? Die bisherige Einteilung wird verworfen.
