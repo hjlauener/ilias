@@ -102,6 +102,16 @@ grm shell
 
 ## Fehlersuche
 
+- **„Sorry, an error occured … code "xxxxx_123"“:** den Code an `grm error`
+  übergeben, das zeigt die zugehörige ILIAS-Fehlerlogdatei an:
+
+  ```bash
+  grm error xxxxx_123
+  ```
+
+  Ohne Code zeigt `grm error` die neuste Fehlerlogdatei, `grm ilias-log` die
+  letzten Einträge des allgemeinen ILIAS-Logs.
+
 - **Weisse Seite / Fehler 500:** `grm logs` zeigt die PHP-Fehler
   (je nach Image). ILIAS schreibt Fehler ausserdem in sein Log-Verzeichnis
   (siehe `ilias.ini.php`, Abschnitt `[log]`).

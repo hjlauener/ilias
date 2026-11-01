@@ -9,6 +9,9 @@
 #   ./dev/reload.sh status     gefundene Konfiguration anzeigen
 #   ./dev/reload.sh logs       Docker-Logs des ILIAS-Containers verfolgen
 #   ./dev/reload.sh shell      Shell im ILIAS-Container öffnen
+#   ./dev/reload.sh error CODE ILIAS-Fehlerlog zu "Sorry, an error occured … code CODE" anzeigen
+#   ./dev/reload.sh error      neuestes ILIAS-Fehlerlog anzeigen
+#   ./dev/reload.sh ilias-log  letzte Einträge des ILIAS-Logs anzeigen
 #
 # Unterstützt ILIAS 9 (setup/setup.php) und ILIAS 10/11 (cli/setup.php, public/Customizing).
 # Einstellungen (optional) in dev/config.env – siehe dev/config.env.example.
@@ -338,6 +341,48 @@ do_pull() {
     ok "Code ist aktuell: $(git -C "$PLUGIN_DIR" log -1 --format='%h %s')"
 }
 
+# Wert aus ilias.ini.php lesen: ini_value <Abschnitt> <Schlüssel>
+ini_value() {
+    in_container php -r '
+        $ini = @parse_ini_file($argv[1], true);
+        echo $ini[$argv[2]][$argv[3]] ?? "";
+    ' "$ILIAS_DIR/ilias.ini.php" "$1" "$2" 2>/dev/null || true
+}
+
+do_error() { # $1 = Fehlercode (optional)
+    local code="${1:-}" dir file
+    dir="$(ini_value log error_path)"
+
+    if [ -n "$code" ]; then
+        code="$(printf '%s' "$code" | tr -cd 'A-Za-z0-9_.-')"
+        file=""
+        if [ -n "$dir" ] && in_root test -f "$dir/$code.log"; then
+            file="$dir/$code.log"
+        else
+            step "Suche $code.log im Container …"
+            file="$(in_root sh -c "find /var /tmp /srv /opt /home -name '$code.log' -type f 2>/dev/null | head -1" || true)"
+        fi
+        [ -n "$file" ] || die "Kein Fehlerlog '$code.log' gefunden (Fehler-Log-Verzeichnis laut ilias.ini.php: '${dir:-nicht gesetzt}')."
+    else
+        [ -n "$dir" ] || die "In ilias.ini.php ist kein Fehler-Log-Verzeichnis (error_path) gesetzt. Bitte den Fehlercode angeben: grm error CODE"
+        file="$(in_root sh -c "ls -t '$dir'/*.log 2>/dev/null | head -1" || true)"
+        [ -n "$file" ] || die "Keine Fehlerlogs in $dir."
+    fi
+
+    step "Fehlerlog: $file"
+    in_root sed -n '1,200p' "$file"
+}
+
+do_ilias_log() {
+    local path file log
+    path="$(ini_value log path)"
+    file="$(ini_value log file)"
+    [ -n "$path" ] && [ -n "$file" ] || die "In ilias.ini.php ist kein ILIAS-Log (log path/file) konfiguriert."
+    log="$path/$file"
+    step "ILIAS-Log: $log (letzte 100 Zeilen)"
+    in_root tail -n 100 "$log"
+}
+
 do_status() {
     echo "Plugin-Ordner (Mac): $PLUGIN_DIR"
     echo "Container:           $CONTAINER"
@@ -357,13 +402,18 @@ do_status() {
 PULL=0
 WATCH=0
 CMD="reload"
+ERROR_CODE=""
 for arg in "$@"; do
+    if [ "$CMD" = "error" ] && [ -z "$ERROR_CODE" ] && [ "${arg#-}" = "$arg" ]; then
+        ERROR_CODE="$arg"
+        continue
+    fi
     case "$arg" in
         --pull) PULL=1 ;;
         --watch) WATCH=1 ;;
         --open) OPEN_BROWSER=1 ;;
-        reload|install|status|logs|shell) CMD="$arg" ;;
-        -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        reload|install|status|logs|shell|error|ilias-log) CMD="$arg" ;;
+        -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) die "Unbekannte Option: $arg (siehe --help)" ;;
     esac
 done
@@ -373,6 +423,8 @@ setup_context
 
 case "$CMD" in
     status) do_status ;;
+    error) do_error "$ERROR_CODE" ;;
+    ilias-log) do_ilias_log ;;
     logs) docker logs -f --tail 100 "$CONTAINER" ;;
     shell) docker exec -it -u "$WEB_USER" -w "$ILIAS_DIR" "$CONTAINER" sh -c 'command -v bash >/dev/null && exec bash || exec sh' ;;
     install) do_install; open_browser ;;
