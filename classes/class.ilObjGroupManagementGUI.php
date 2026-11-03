@@ -87,6 +87,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
     public function performCommand(string $cmd): void
     {
+        $this->addPluginCss();
+
         if (in_array($cmd, self::WRITE_COMMANDS, true)) {
             $this->checkPermission("write");
             $this->$cmd();
@@ -526,6 +528,20 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
 
         $this->tpl->setContent($this->ui_renderer->render($components));
+    }
+
+    /**
+     * Plugin stylesheet (e.g. red titles), loaded on all pages of the plugin.
+     */
+    private function addPluginCss(): void
+    {
+        $plugin = $this->getPlugin();
+        // ILIAS 10/11: web root is public/, getRelativeDirectory() is relative to it.
+        // ILIAS 9: getDirectory() is already relative to the web root.
+        $dir = method_exists($plugin, "getRelativeDirectory")
+            ? $plugin->getRelativeDirectory()
+            : $plugin->getDirectory();
+        $this->tpl->addCss(rtrim($dir, "/") . "/templates/css/xgrm.css");
     }
 
     private function isLecturer(): bool

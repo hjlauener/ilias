@@ -28,6 +28,8 @@ diff <(cut -d'#' -f1 lang/ilias_de.lang) <(cut -d'#' -f1 lang/ilias_en.lang)
 - Mehrere Gruppenmanagements können gleichzeitig aktiv sein (pro
   Gruppenmanagement genau eine Methode a–j). Studierende sehen zuerst eine
   Übersicht der aktiven, die eigene Gruppe steht in der Detailansicht abgehoben zuoberst.
+- Eigene Gestaltung (z.B. rote Titel) nur über `templates/css/xgrm.css`
+  (wird in `addPluginCss()` auf allen Plugin-Seiten geladen), keine Inline-Styles.
 - Nur UI-Aufrufe verwenden, die in ILIAS 9, 10 und 11 gleich sind
   (z.B. kein `$f->legacy(...)`, dessen Signatur sich in ILIAS 11 geändert hat).
 

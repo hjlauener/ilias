@@ -1,0 +1,26 @@
+/*
+ * GroupManagement plugin – wird nur auf den Seiten des Plugins geladen.
+ * Titel (Bereiche, Gruppen, Einträge in Listen) in Rot.
+ */
+:root {
+    --xgrm-title-color: #b3141b; /* Rot mit genügend Kontrast auf weissem Hintergrund */
+}
+
+/* Bereichstitel (Panels: Übersicht, Gruppen, Ihre Gruppe, …) */
+.il-layout-page-content .panel-heading .panel-title > :is(h1, h2, h3, h4, h5, h6),
+/* Gruppentitel (Unterbereiche) */
+.il-layout-page-content .panel-sub > .panel-heading > :is(h1, h2, h3, h4, h5, h6),
+/* Namen der Gruppenmanagements in Listen */
+.il-layout-page-content .il-item-title,
+.il-layout-page-content .il-item-title a,
+.il-layout-page-content .il-item-title .btn-link {
+    color: var(--xgrm-title-color);
+}
+
+.il-layout-page-content .il-item-title a:hover,
+.il-layout-page-content .il-item-title a:focus,
+.il-layout-page-content .il-item-title .btn-link:hover,
+.il-layout-page-content .il-item-title .btn-link:focus {
+    color: var(--xgrm-title-color);
+    text-decoration: underline;
+}
