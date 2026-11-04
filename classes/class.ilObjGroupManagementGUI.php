@@ -375,8 +375,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
         $properties = $this->getManagementProperties($mgmt);
         $properties[$this->txt("course_members")] = (string) count($members);
-        if ($mgmt->getAssignMode() === ilGrmManagement::MODE_TOPICS) {
+        if ($mgmt->usesTopics()) {
             $properties[$this->txt("topics")] = implode(", ", array_map([$this, "esc"], $mgmt->getTopics()));
+        }
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_B && !$mgmt->isDrawn() && $members !== []) {
+            $properties[$this->txt("expected_groups")] = (string) $mgmt->getEffectiveNumberOfGroups(count($members));
         }
         if ($mgmt->getPublished() !== null) {
             $properties[$this->txt("published_at")] = ilDatePresentation::formatDate(
@@ -609,6 +612,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 "assign_mode" => $mgmt->getAssignMode(),
                 "num_groups" => (string) $mgmt->getNumGroups(),
                 "topics" => implode("\n", $mgmt->getTopics()),
+                "group_size" => (string) $mgmt->getGroupSize(),
+                "remainder_mode" => $mgmt->getRemainderMode(),
                 "show_all" => $mgmt->isShowAllGroups(),
             ]);
             if ($mgmt->isDrawn() && !$mgmt->isPublished()) {
@@ -628,13 +633,13 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             return;
         }
 
-        $before = [$mgmt->getAssignMode(), $mgmt->getNumGroups(), $mgmt->getTopics()];
+        $before = $this->getStructureSignature($mgmt);
         if (!$this->applyManagementForm($form, $mgmt)) {
             $form->setValuesByPost();
             $this->editManagement($form);
             return;
         }
-        $after = [$mgmt->getAssignMode(), $mgmt->getNumGroups(), $mgmt->getTopics()];
+        $after = $this->getStructureSignature($mgmt);
 
         $message = $this->lng->txt("msg_obj_modified");
         if ($mgmt->isDrawn() && !$mgmt->isPublished() && $before !== $after) {
@@ -682,13 +687,13 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 if (!ilGrmMethods::isImplemented($key)) {
                     $option->setDisabled(true);
                 }
-                if ($key === ilGrmMethods::METHOD_A) {
-                    $option->addSubItem($this->buildAssignModeInput());
-                    $option->addSubItem($this->buildShowAllInput());
+                foreach ($this->buildMethodInputs($key) as $input) {
+                    $option->addSubItem($input);
                 }
                 $method->addOption($option);
             }
             $form->addItem($method);
+            $form->addItem($this->buildShowAllInput());
         } else {
             $method = new ilNonEditableValueGUI($this->txt("method"), "", true);
             $method->setValue($this->txt("method_" . $mgmt->getMethod()));
@@ -700,7 +705,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 $mode->setInfo($this->txt("settings_locked_published"));
                 $form->addItem($mode);
             } else {
-                $form->addItem($this->buildAssignModeInput());
+                foreach ($this->buildMethodInputs($mgmt->getMethod()) as $input) {
+                    $form->addItem($input);
+                }
             }
             $form->addItem($this->buildShowAllInput());
         }
@@ -714,6 +721,69 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
 
         return $form;
+    }
+
+    /**
+     * Method specific settings.
+     *
+     * @return ilFormPropertyGUI[]
+     */
+    private function buildMethodInputs(string $method): array
+    {
+        switch ($method) {
+            case ilGrmMethods::METHOD_A:
+                return [$this->buildAssignModeInput()];
+            case ilGrmMethods::METHOD_B:
+                return $this->buildGroupSizeInputs();
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Method b: size of the groups (2, 3, 4, …) and what happens if it does not add up.
+     *
+     * @return ilFormPropertyGUI[]
+     */
+    private function buildGroupSizeInputs(): array
+    {
+        $size = new ilNumberInputGUI($this->txt("group_size"), "group_size");
+        $size->setRequired(true);
+        $size->setDecimals(0);
+        $size->setMinValue(ilGrmManagement::MIN_GROUP_SIZE);
+        $size->setMaxValue(ilGrmManagement::MAX_GROUP_SIZE);
+        $size->setSize(4);
+        $size->setValue("3");
+        $size->setInfo($this->txt("group_size_info"));
+
+        $remainder = new ilRadioGroupInputGUI($this->txt("remainder_mode"), "remainder_mode");
+        $remainder->setRequired(true);
+        $remainder->setValue(ilGrmManagement::REMAINDER_NEAREST);
+        foreach (ilGrmManagement::REMAINDER_MODES as $remainder_mode) {
+            $remainder->addOption(new ilRadioOption(
+                $this->txt("remainder_" . $remainder_mode),
+                $remainder_mode,
+                $this->txt("remainder_" . $remainder_mode . "_info")
+            ));
+        }
+
+        return [$size, $remainder];
+    }
+
+    /**
+     * Settings that define the groups – if they change, an existing draw is discarded.
+     *
+     * @return array<int, mixed>
+     */
+    private function getStructureSignature(ilGrmManagement $mgmt): array
+    {
+        return [
+            $mgmt->getAssignMode(),
+            $mgmt->getNumGroups(),
+            $mgmt->getTopics(),
+            $mgmt->getGroupSize(),
+            $mgmt->getRemainderMode(),
+        ];
     }
 
     /**
@@ -774,6 +844,21 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
         if ($mgmt->isPublished()) {
             return true; // structure is locked
+        }
+
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_B) {
+            $size = (int) $form->getInput("group_size");
+            if ($size < ilGrmManagement::MIN_GROUP_SIZE || $size > ilGrmManagement::MAX_GROUP_SIZE) {
+                $this->setFormAlert($form, "group_size", sprintf(
+                    $this->txt("group_size_invalid"),
+                    ilGrmManagement::MIN_GROUP_SIZE,
+                    ilGrmManagement::MAX_GROUP_SIZE
+                ));
+                return false;
+            }
+            $mgmt->setGroupSize($size);
+            $mgmt->setRemainderMode((string) $form->getInput("remainder_mode"));
+            return true;
         }
 
         $mode = (string) $form->getInput("assign_mode");
@@ -943,7 +1028,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
-     * Random assignment of all course members (method a).
+     * Random assignment of all course members (methods a and b).
      */
     private function performDraw(ilGrmManagement $mgmt): bool
     {
@@ -958,7 +1043,10 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             return false;
         }
 
-        $titles = $mgmt->buildGroupTitles(fn(int $n): string => sprintf($this->txt("group_title_n"), $n));
+        $titles = $mgmt->buildGroupTitles(
+            fn(int $n): string => sprintf($this->txt("group_title_n"), $n),
+            count($members)
+        );
         if ($titles === []) {
             $this->tpl->setOnScreenMessage("failure", $this->txt("no_groups_configured"), true);
             return false;
@@ -1156,7 +1244,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
     private function getModeSummary(ilGrmManagement $mgmt): string
     {
-        if ($mgmt->getAssignMode() === ilGrmManagement::MODE_TOPICS) {
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_B) {
+            return sprintf($this->txt("summary_group_size"), $mgmt->getGroupSize())
+                . " – " . $this->txt("remainder_" . $mgmt->getRemainderMode() . "_short");
+        }
+        if ($mgmt->usesTopics()) {
             return sprintf($this->txt("summary_topics"), count($mgmt->getTopics()));
         }
         return sprintf($this->txt("summary_groups"), $mgmt->getNumGroups());

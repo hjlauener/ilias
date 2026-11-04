@@ -60,3 +60,18 @@ if (!$ilDB->tableExists('rep_robj_xgrm_assign')) {
     $ilDB->addIndex('rep_robj_xgrm_assign', ['group_id'], 'i1');
 }
 ?>
+<#5>
+<?php
+/** @var ilDBInterface $ilDB */
+// method b: fixed group size
+if (!$ilDB->tableColumnExists('rep_robj_xgrm_mgmt', 'group_size')) {
+    $ilDB->addTableColumn('rep_robj_xgrm_mgmt', 'group_size', [
+        'type' => 'integer', 'length' => 4, 'notnull' => true, 'default' => 3,
+    ]);
+}
+if (!$ilDB->tableColumnExists('rep_robj_xgrm_mgmt', 'remainder_mode')) {
+    $ilDB->addTableColumn('rep_robj_xgrm_mgmt', 'remainder_mode', [
+        'type' => 'text', 'length' => 16, 'notnull' => true, 'default' => 'nearest',
+    ]);
+}
+?>

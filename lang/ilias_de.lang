@@ -31,8 +31,8 @@ mgmt_title#:#Titel
 method#:#Methode
 method_a#:#A – Zufallszuteilung durch Dozierende
 method_a_info#:#Die Dozierenden entscheiden: Die Mitglieder des übergeordneten Kurses werden nach dem Zufallsprinzip auf eine feste Anzahl Gruppen oder Themen verteilt. Die Einteilung wird erst nach „Los“ für die Studierenden sichtbar.
-method_b#:#B – (in Vorbereitung)
-method_b_info#:#Diese Methode ist noch nicht verfügbar.
+method_b#:#B – Feste Gruppengrösse
+method_b_info#:#Die Dozierenden legen fest, wie viele Personen eine Gruppe hat (2er-, 3er-, 4er-Gruppen usw.). Die Mitglieder des übergeordneten Kurses werden nach dem Zufallsprinzip eingeteilt; die Anzahl Gruppen ergibt sich aus der Anzahl Kursmitglieder. Die Einteilung wird erst nach „Los“ für die Studierenden sichtbar.
 method_c#:#C – (in Vorbereitung)
 method_c_info#:#Diese Methode ist noch nicht verfügbar.
 method_d#:#D – (in Vorbereitung)
@@ -60,6 +60,21 @@ num_groups_invalid#:#Bitte eine Anzahl zwischen 1 und %s angeben.
 topics#:#Themen
 topics_info#:#Ein Thema pro Zeile. Die Anzahl Zeilen bestimmt die Anzahl Gruppen.
 topics_invalid#:#Bitte mindestens ein und höchstens %s Themen angeben (ein Thema pro Zeile).
+group_size#:#Gruppengrösse (Personen pro Gruppe)
+group_size_info#:#Zum Beispiel 2 für 2er-Gruppen, 3 für 3er-Gruppen, 4 für 4er-Gruppen.
+group_size_invalid#:#Bitte eine Gruppengrösse zwischen %s und %s angeben.
+remainder_mode#:#Wenn die Anzahl Kursmitglieder nicht aufgeht
+remainder_nearest#:#Möglichst genau die gewünschte Grösse (empfohlen)
+remainder_nearest_info#:#Einzelne Gruppen haben eine Person mehr oder weniger, z. B. 4er-Gruppen und einzelne 3er- oder 5er-Gruppen.
+remainder_smaller#:#Gruppen höchstens so gross wie angegeben
+remainder_smaller_info#:#Einzelne Gruppen werden kleiner, z. B. 4er-Gruppen und einzelne 3er-Gruppen.
+remainder_distribute#:#Gruppen mindestens so gross wie angegeben
+remainder_distribute_info#:#Übrige Personen werden auf die Gruppen verteilt, einzelne Gruppen werden grösser, z. B. 4er-Gruppen und einzelne 5er- oder 6er-Gruppen.
+remainder_nearest_short#:#möglichst genau
+remainder_smaller_short#:#höchstens so gross
+remainder_distribute_short#:#mindestens so gross
+summary_group_size#:#%ser-Gruppen
+expected_groups#:#Voraussichtliche Anzahl Gruppen
 show_all_groups#:#Studierende sehen alle Gruppen
 show_all_groups_info#:#Wenn aktiviert, sehen Studierende nach „Los“ die gesamte Gruppeneinteilung. Sonst sehen sie nur die eigene Gruppe.
 summary_groups#:#%s Gruppen

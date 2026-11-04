@@ -13,9 +13,12 @@ final class ilGrmMethods
     /** Lecturer decides: random assignment into a fixed number of groups / topics */
     public const METHOD_A = "a";
 
+    /** Lecturer decides: random assignment into groups of a fixed size (2, 3, 4, …) */
+    public const METHOD_B = "b";
+
     public const ALL = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
-    public const IMPLEMENTED = [self::METHOD_A];
+    public const IMPLEMENTED = [self::METHOD_A, self::METHOD_B];
 
     public static function isValid(string $method): bool
     {

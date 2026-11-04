@@ -32,7 +32,17 @@ Mitglieder eines Kurses in Gruppen einteilen.
    - „Neue Kursmitglieder zuteilen“ verteilt später beigetretene Mitglieder
      auf die jeweils kleinsten Gruppen, ohne bestehende Zuteilungen zu ändern.
    - Option „Studierende sehen alle Gruppen“ (sonst nur die eigene Gruppe).
-4. **Methoden B–J** sind in der Auswahl sichtbar, aber noch deaktiviert
+4. **Methode B – Feste Gruppengrösse** (umgesetzt)
+   - Die Dozierenden geben die Gruppengrösse ein (2er-, 3er-, 4er-Gruppen …);
+     die Anzahl Gruppen ergibt sich aus der Anzahl Kursmitglieder.
+   - Wenn es nicht aufgeht:
+     - *möglichst genau die gewünschte Grösse* (Voreinstellung): einzelne
+       Gruppen eine Person mehr oder weniger (11 Personen, 4er → 4, 4, 3),
+     - *höchstens so gross*: einzelne Gruppen kleiner (10 Personen, 3er → 3, 3, 2, 2),
+     - *mindestens so gross*: übrige Personen werden verteilt (11 Personen, 4er → 6, 5).
+   - Gleiche Abläufe wie bei Methode A: Zufallszuteilung (Vorschau), „Los“,
+     Freigabe zurücknehmen, neue Kursmitglieder zuteilen.
+5. **Methoden C–J** sind in der Auswahl sichtbar, aber noch deaktiviert
    („in Vorbereitung“).
 
 ## Installation
@@ -81,7 +91,7 @@ das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.
 `draft` (noch nicht ausgelost) → `drawn` (ausgelost, nur Dozierende) →
 `published` (nach „Los“, für Studierende sichtbar).
 
-### Weitere Methoden hinzufügen (B–J)
+### Weitere Methoden hinzufügen (C–J)
 
 1. Methode in `ilGrmMethods::IMPLEMENTED` eintragen.
 2. Methodenspezifische Einstellungen im Formular

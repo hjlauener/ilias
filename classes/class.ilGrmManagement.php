@@ -24,6 +24,18 @@ class ilGrmManagement
 
     public const MAX_GROUPS = 500;
 
+    /** Method b: number of groups so that the groups are as close as possible to the group size */
+    public const REMAINDER_NEAREST = "nearest";
+    /** Method b: groups are at most as large as the group size (some become smaller) */
+    public const REMAINDER_SMALLER = "smaller";
+    /** Method b: groups are at least as large as the group size (remaining people are distributed) */
+    public const REMAINDER_DISTRIBUTE = "distribute";
+
+    public const REMAINDER_MODES = [self::REMAINDER_NEAREST, self::REMAINDER_SMALLER, self::REMAINDER_DISTRIBUTE];
+
+    public const MIN_GROUP_SIZE = 2;
+    public const MAX_GROUP_SIZE = 100;
+
     private int $id = 0;
     private int $obj_id;
     private string $method;
@@ -35,6 +47,8 @@ class ilGrmManagement
     /** @var string[] */
     private array $topics = [];
     private bool $show_all_groups = true;
+    private int $group_size = 3;
+    private string $remainder_mode = self::REMAINDER_NEAREST;
     private int $created = 0;
     private ?int $published = null;
 
@@ -150,6 +164,28 @@ class ilGrmManagement
         $this->show_all_groups = $show_all_groups;
     }
 
+    public function getGroupSize(): int
+    {
+        return $this->group_size;
+    }
+
+    public function setGroupSize(int $group_size): void
+    {
+        $this->group_size = max(self::MIN_GROUP_SIZE, min(self::MAX_GROUP_SIZE, $group_size));
+    }
+
+    public function getRemainderMode(): string
+    {
+        return $this->remainder_mode;
+    }
+
+    public function setRemainderMode(string $remainder_mode): void
+    {
+        $this->remainder_mode = in_array($remainder_mode, self::REMAINDER_MODES, true)
+            ? $remainder_mode
+            : self::REMAINDER_NEAREST;
+    }
+
     public function getCreated(): int
     {
         return $this->created;
@@ -172,26 +208,55 @@ class ilGrmManagement
 
     /**
      * Number of groups that will be created by a draw.
+     *
+     * @param int $member_count number of people to distribute (only relevant
+     *                          for method b, where it determines the number of groups)
      */
-    public function getEffectiveNumberOfGroups(): int
+    public function getEffectiveNumberOfGroups(int $member_count = 0): int
     {
-        return $this->assign_mode === self::MODE_TOPICS ? count($this->topics) : $this->num_groups;
+        if ($this->method === ilGrmMethods::METHOD_B) {
+            if ($member_count <= 0) {
+                return 0;
+            }
+            switch ($this->remainder_mode) {
+                case self::REMAINDER_SMALLER:
+                    $groups = (int) ceil($member_count / $this->group_size);
+                    break;
+                case self::REMAINDER_DISTRIBUTE:
+                    $groups = intdiv($member_count, $this->group_size);
+                    break;
+                default:
+                    $groups = (int) round($member_count / $this->group_size);
+            }
+            return max(1, min(self::MAX_GROUPS, $groups));
+        }
+        return $this->usesTopics() ? count($this->topics) : $this->num_groups;
+    }
+
+    /**
+     * Method a with "fixed number of topics": one group per topic.
+     */
+    public function usesTopics(): bool
+    {
+        return $this->method === ilGrmMethods::METHOD_A && $this->assign_mode === self::MODE_TOPICS;
     }
 
     /**
      * Titles of the groups that will be created by a draw.
      *
      * @param callable(int):string $group_title_builder builds the title of
-     *        group n (1-based) in "fixed number of groups" mode
+     *        group n (1-based) if the groups have no topic
+     * @param int $member_count number of people to distribute (method b)
      * @return string[]
      */
-    public function buildGroupTitles(callable $group_title_builder): array
+    public function buildGroupTitles(callable $group_title_builder, int $member_count = 0): array
     {
-        if ($this->assign_mode === self::MODE_TOPICS) {
+        if ($this->usesTopics()) {
             return $this->topics;
         }
         $titles = [];
-        for ($i = 1; $i <= $this->num_groups; $i++) {
+        $count = $this->getEffectiveNumberOfGroups($member_count);
+        for ($i = 1; $i <= $count; $i++) {
             $titles[] = $group_title_builder($i);
         }
         return $titles;

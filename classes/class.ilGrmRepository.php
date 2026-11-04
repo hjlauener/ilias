@@ -84,6 +84,8 @@ class ilGrmRepository
             "num_groups" => ["integer", $mgmt->getNumGroups()],
             "topics" => ["clob", implode("\n", $mgmt->getTopics())],
             "show_all" => ["integer", (int) $mgmt->isShowAllGroups()],
+            "group_size" => ["integer", $mgmt->getGroupSize()],
+            "remainder_mode" => ["text", $mgmt->getRemainderMode()],
             "created" => ["integer", $mgmt->getCreated()],
             "published" => ["integer", $mgmt->getPublished()],
         ];
@@ -242,6 +244,8 @@ class ilGrmRepository
         $mgmt->setNumGroups((int) $rec["num_groups"]);
         $mgmt->setTopics(ilGrmManagement::parseTopics((string) ($rec["topics"] ?? "")));
         $mgmt->setShowAllGroups((bool) $rec["show_all"]);
+        $mgmt->setGroupSize((int) ($rec["group_size"] ?? 3));
+        $mgmt->setRemainderMode((string) ($rec["remainder_mode"] ?? ilGrmManagement::REMAINDER_NEAREST));
         $mgmt->setCreated((int) $rec["created"]);
         $mgmt->setPublished($rec["published"] !== null ? (int) $rec["published"] : null);
         return $mgmt;

@@ -31,8 +31,8 @@ mgmt_title#:#Title
 method#:#Method
 method_a#:#A – Random assignment by lecturer
 method_a_info#:#The lecturer decides: the members of the parent course are randomly assigned to a fixed number of groups or topics. The assignment becomes visible for students after "Go".
-method_b#:#B – (coming soon)
-method_b_info#:#This method is not available yet.
+method_b#:#B – Fixed group size
+method_b_info#:#The lecturer defines how many people a group has (groups of 2, 3, 4, …). The members of the parent course are assigned randomly; the number of groups results from the number of course members. The assignment becomes visible for students after "Go".
 method_c#:#C – (coming soon)
 method_c_info#:#This method is not available yet.
 method_d#:#D – (coming soon)
@@ -60,6 +60,21 @@ num_groups_invalid#:#Please enter a number between 1 and %s.
 topics#:#Topics
 topics_info#:#One topic per line. The number of lines defines the number of groups.
 topics_invalid#:#Please enter at least one and at most %s topics (one topic per line).
+group_size#:#Group size (people per group)
+group_size_info#:#For example 2 for groups of two, 3 for groups of three, 4 for groups of four.
+group_size_invalid#:#Please enter a group size between %s and %s.
+remainder_mode#:#If the number of course members does not add up
+remainder_nearest#:#As close as possible to the group size (recommended)
+remainder_nearest_info#:#Some groups have one person more or less, e.g. groups of 4 and a few groups of 3 or 5.
+remainder_smaller#:#Groups at most as large as specified
+remainder_smaller_info#:#Some groups become smaller, e.g. groups of 4 and a few groups of 3.
+remainder_distribute#:#Groups at least as large as specified
+remainder_distribute_info#:#Remaining people are distributed to the groups, some groups become larger, e.g. groups of 4 and a few groups of 5 or 6.
+remainder_nearest_short#:#as close as possible
+remainder_smaller_short#:#at most this size
+remainder_distribute_short#:#at least this size
+summary_group_size#:#groups of %s
+expected_groups#:#Expected number of groups
 show_all_groups#:#Students see all groups
 show_all_groups_info#:#If checked, students see the complete group assignment after "Go". Otherwise they only see their own group.
 summary_groups#:#%s groups
