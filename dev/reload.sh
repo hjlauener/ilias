@@ -411,20 +411,27 @@ do_start() {
     list="$(docker ps -a --format '{{.Names}}|{{.Image}}|{{.Label "com.docker.compose.project"}}|{{.State}}')"
     [ -n "$list" ] || die "Es gibt keine Docker-Container. ILIAS muss zuerst (z.B. mit docker compose up -d) erstellt werden."
 
-    # ILIAS-Container finden: CONTAINER aus config.env oder Image mit "ilias" im Namen
-    while IFS='|' read -r name image project state; do
-        [ -n "$name" ] || continue
-        if [ -n "$CONTAINER" ]; then
-            [ "$name" = "$CONTAINER" ] || continue
-        else
-            case "$(printf '%s' "$image" | tr 'A-Z' 'a-z')" in *ilias*) ;; *) continue ;; esac
-        fi
-        web="$name"
-        web_project="$project"
-        break
-    done <<EOF_LIST
+    # ILIAS-Container finden: CONTAINER aus config.env, sonst ein Container mit
+    # "ilias" im Image, der zu einem docker-compose-Projekt gehört (Container, die
+    # über "Run" in Docker Desktop direkt aus dem Image entstanden sind, haben keins).
+    local pass
+    for pass in compose any; do
+        while IFS='|' read -r name image project state; do
+            [ -n "$name" ] || continue
+            if [ -n "$CONTAINER" ]; then
+                [ "$name" = "$CONTAINER" ] || continue
+            else
+                case "$(printf '%s' "$image" | tr 'A-Z' 'a-z')" in *ilias*) ;; *) continue ;; esac
+                if [ "$pass" = "compose" ] && [ -z "$project" ]; then continue; fi
+            fi
+            web="$name"
+            web_project="$project"
+            break
+        done <<EOF_LIST
 $list
 EOF_LIST
+        [ -n "$web" ] && break
+    done
     [ -n "$web" ] || die "Kein ILIAS-Container gefunden (siehe 'docker ps -a'). Sonst CONTAINER in dev/config.env setzen."
 
     # übrige Container desselben compose-Projekts (z.B. Datenbank)
@@ -437,22 +444,39 @@ $list
 EOF_LIST
     fi
 
+    local started_db=0
     for name in $dbs $web; do
         state="$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null || echo "?")"
         if [ "$state" = "running" ]; then
             ok "$name läuft bereits."
         else
+            if [ "$name" = "$web" ] && [ "$started_db" = "1" ]; then
+                step "Warte kurz, bis die Datenbank bereit ist …"
+                sleep 10
+            fi
             step "Starte $name"
             docker start "$name" >/dev/null || die "$name konnte nicht gestartet werden. Details: docker logs $name"
             ok "$name gestartet."
+            [ "$name" != "$web" ] && started_db=1
         fi
     done
 
     step "Warte, bis ILIAS bereit ist …"
     for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-        if [ "$(docker inspect -f '{{.State.Status}}' "$web" 2>/dev/null)" = "running" ] \
-            && find_ilias_dir_in "$web" >/dev/null 2>&1; then
+        state="$(docker inspect -f '{{.State.Status}}' "$web" 2>/dev/null || echo "?")"
+        if [ "$state" = "running" ] && find_ilias_dir_in "$web" >/dev/null 2>&1; then
             break
+        fi
+        if [ "$state" = "exited" ] || [ "$state" = "dead" ]; then
+            warn "$web wurde beendet. Letzte Meldungen:"
+            docker logs --tail 20 "$web" >&2 || true
+            for name in $dbs; do
+                if [ "$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null)" != "running" ]; then
+                    warn "$name läuft nicht. Letzte Meldungen:"
+                    docker logs --tail 20 "$name" >&2 || true
+                fi
+            done
+            die "ILIAS konnte nicht gestartet werden."
         fi
         sleep 2
     done
