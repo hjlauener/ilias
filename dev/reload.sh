@@ -12,6 +12,7 @@
 #   ./dev/reload.sh error CODE ILIAS-Fehlerlog zu "Sorry, an error occured … code CODE" anzeigen
 #   ./dev/reload.sh error      neuestes ILIAS-Fehlerlog anzeigen
 #   ./dev/reload.sh ilias-log  letzte Einträge des ILIAS-Logs anzeigen
+#   ./dev/reload.sh start      gestoppte ILIAS-Container (inkl. Datenbank) starten
 #
 # Unterstützt ILIAS 9 (setup/setup.php) und ILIAS 10/11 (cli/setup.php, public/Customizing).
 # Einstellungen (optional) in dev/config.env – siehe dev/config.env.example.
@@ -401,6 +402,74 @@ do_ilias_log() {
     in_root tail -n 100 "$log"
 }
 
+# Gestoppte ILIAS-Container starten: zuerst die übrigen Container desselben
+# docker-compose-Projekts (Datenbank), dann ILIAS selbst.
+do_start() {
+    local list name image project state web="" web_project="" dbs="" port url i
+    check_docker
+
+    list="$(docker ps -a --format '{{.Names}}|{{.Image}}|{{.Label "com.docker.compose.project"}}|{{.State}}')"
+    [ -n "$list" ] || die "Es gibt keine Docker-Container. ILIAS muss zuerst (z.B. mit docker compose up -d) erstellt werden."
+
+    # ILIAS-Container finden: CONTAINER aus config.env oder Image mit "ilias" im Namen
+    while IFS='|' read -r name image project state; do
+        [ -n "$name" ] || continue
+        if [ -n "$CONTAINER" ]; then
+            [ "$name" = "$CONTAINER" ] || continue
+        else
+            case "$(printf '%s' "$image" | tr 'A-Z' 'a-z')" in *ilias*) ;; *) continue ;; esac
+        fi
+        web="$name"
+        web_project="$project"
+        break
+    done <<EOF_LIST
+$list
+EOF_LIST
+    [ -n "$web" ] || die "Kein ILIAS-Container gefunden (siehe 'docker ps -a'). Sonst CONTAINER in dev/config.env setzen."
+
+    # übrige Container desselben compose-Projekts (z.B. Datenbank)
+    if [ -n "$web_project" ]; then
+        while IFS='|' read -r name image project state; do
+            [ -n "$name" ] && [ "$name" != "$web" ] && [ "$project" = "$web_project" ] || continue
+            dbs="$dbs $name"
+        done <<EOF_LIST
+$list
+EOF_LIST
+    fi
+
+    for name in $dbs $web; do
+        state="$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null || echo "?")"
+        if [ "$state" = "running" ]; then
+            ok "$name läuft bereits."
+        else
+            step "Starte $name"
+            docker start "$name" >/dev/null || die "$name konnte nicht gestartet werden. Details: docker logs $name"
+            ok "$name gestartet."
+        fi
+    done
+
+    step "Warte, bis ILIAS bereit ist …"
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+        if [ "$(docker inspect -f '{{.State.Status}}' "$web" 2>/dev/null)" = "running" ] \
+            && find_ilias_dir_in "$web" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 2
+    done
+    [ "$(docker inspect -f '{{.State.Status}}' "$web" 2>/dev/null)" = "running" ] \
+        || die "$web läuft nicht. Details: docker logs $web"
+
+    port="$(docker port "$web" 80/tcp 2>/dev/null | head -1 | sed 's/.*://')"
+    if [ -n "$port" ]; then
+        url="http://localhost:$port"
+        [ -n "$ILIAS_URL" ] && url="$ILIAS_URL"
+        ok "ILIAS läuft: $url"
+        if command -v open >/dev/null 2>&1; then open "$url"; fi
+    else
+        ok "ILIAS läuft (Container $web)."
+    fi
+}
+
 do_status() {
     echo "Plugin-Ordner (Mac): $PLUGIN_DIR"
     echo "Container:           $CONTAINER"
@@ -430,13 +499,18 @@ for arg in "$@"; do
         --pull) PULL=1 ;;
         --watch) WATCH=1 ;;
         --open) OPEN_BROWSER=1 ;;
-        reload|install|status|logs|shell|error|ilias-log) CMD="$arg" ;;
-        -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        reload|install|status|logs|shell|error|ilias-log|start) CMD="$arg" ;;
+        -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) die "Unbekannte Option: $arg (siehe --help)" ;;
     esac
 done
 
 if [ "$PULL" = "1" ]; then do_pull; fi
+if [ "$CMD" = "start" ]; then
+    do_start
+    exit 0
+fi
+
 setup_context
 
 case "$CMD" in

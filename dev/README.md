@@ -102,6 +102,16 @@ grm shell
 
 ## Fehlersuche
 
+- **ILIAS ist nicht erreichbar** (z.B. nach einem Neustart des Macs): Die
+  Container sind gestoppt. Starten (zuerst Datenbank, dann ILIAS; öffnet danach
+  ILIAS im Browser):
+
+  ```bash
+  grm start
+  ```
+
+  Alternativ in Docker Desktop unter *Containers* beim ILIAS-Projekt auf ▶ klicken.
+
 - **„Sorry, an error occured … code "xxxxx_123"“:** den Code an `grm error`
   übergeben, das zeigt die zugehörige ILIAS-Fehlerlogdatei an:
 
