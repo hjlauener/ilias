@@ -46,6 +46,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "unpublishManagement",
         "assignLatecomers",
         "saveCapacities",
+        "moveMember",
     ];
 
     /** Commands that need read permission */
@@ -436,6 +437,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                     $this->buildGroupPanels($groups, $assignments, null, $members)
                 );
             }
+            if ($groups !== []) {
+                $form_html .= $this->initMoveForm($mgmt, $groups, $assignments, $waitlist, $members)->getHTML();
+            }
             $not_in_group = array_values(array_diff($unassigned, array_keys($waitlist)));
             if ($not_in_group !== []) {
                 $components[] = $f->panel()->standard(
@@ -534,6 +538,125 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
         $form->addCommandButton("saveCapacities", $this->txt("save_capacities"));
         return $form;
+    }
+
+    /**
+     * Lecturer: move a person into another group or remove him/her.
+     *
+     * @param array<int, string> $groups
+     * @param array<int, int>    $assignments user id => group id
+     * @param array<int, int>    $waitlist    user id => group id
+     * @param int[]              $course_members
+     */
+    private function initMoveForm(
+        ilGrmManagement $mgmt,
+        array $groups,
+        array $assignments,
+        array $waitlist,
+        array $course_members
+    ): ilPropertyFormGUI {
+        $form = new ilPropertyFormGUI();
+        $form->setTitle($this->txt("move_member"));
+        $form->setDescription($mgmt->getMethod() === ilGrmMethods::METHOD_C
+            ? $this->txt("move_member_info_c")
+            : $this->txt("move_member_info"));
+        $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
+        $form->setFormAction($this->ctrl->getFormAction($this, "moveMember"));
+        $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
+
+        $people = array_values(array_unique(array_merge(
+            $course_members,
+            array_keys($assignments),
+            array_keys($waitlist)
+        )));
+        $person_options = ["" => $this->txt("move_choose_person")];
+        foreach ($this->sortUsersByName($people) as $user_id) {
+            if (isset($assignments[$user_id], $groups[$assignments[$user_id]])) {
+                $where = $groups[$assignments[$user_id]];
+            } elseif (isset($waitlist[$user_id], $groups[$waitlist[$user_id]])) {
+                $where = sprintf($this->txt("member_status_waiting"), $groups[$waitlist[$user_id]]);
+            } else {
+                $where = $this->txt("member_status_none");
+            }
+            $person_options[$user_id] = $this->getRawUserName($user_id) . " – " . $where;
+        }
+        $person = new ilSelectInputGUI($this->txt("move_person"), "move_user");
+        $person->setOptions($person_options);
+        $person->setRequired(true);
+        $form->addItem($person);
+
+        $target_options = [];
+        foreach ($groups as $group_id => $title) {
+            $target_options[$group_id] = $title;
+        }
+        $target_options[0] = $this->txt("move_target_none");
+        $target = new ilSelectInputGUI($this->txt("move_target"), "move_group");
+        $target->setOptions($target_options);
+        $target->setRequired(true);
+        $form->addItem($target);
+
+        $form->addCommandButton("moveMember", $this->txt("move_submit"));
+        return $form;
+    }
+
+    private function moveMember(): void
+    {
+        $mgmt = $this->requireManagement();
+        if (!$mgmt->isDrawn()) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
+
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        $assignments = $this->grm_repo->getAssignments($mgmt->getId());
+        $waitlist = $this->grm_repo->getWaitlist($mgmt->getId());
+        $members = $this->getCourseMembers();
+
+        $form = $this->initMoveForm($mgmt, $groups, $assignments, $waitlist, $members);
+        $user_id = $form->checkInput() ? (int) $form->getInput("move_user") : 0;
+        $target_group_id = $user_id > 0 ? (int) $form->getInput("move_group") : 0;
+
+        $known = in_array($user_id, $members, true) || isset($assignments[$user_id]) || isset($waitlist[$user_id]);
+        if ($user_id <= 0 || !$known || ($target_group_id > 0 && !isset($groups[$target_group_id]))) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("move_invalid"), true);
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        if ($target_group_id > 0 && !in_array($user_id, $members, true)) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("move_not_member"), true);
+            $this->redirectTo("showManagement", $mgmt);
+        }
+
+        $is_c = $mgmt->getMethod() === ilGrmMethods::METHOD_C;
+        $result = $this->grm_enrollment->moveMember($mgmt->getId(), $user_id, $target_group_id, $is_c);
+        if (!$result["ok"]) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("move_invalid"), true);
+            $this->redirectTo("showManagement", $mgmt);
+        }
+
+        $name = $this->getUserName($user_id);
+        $message = $target_group_id > 0
+            ? sprintf($this->txt("moved_done"), $name, $this->esc($groups[$target_group_id]))
+            : sprintf($this->txt("removed_done"), $name);
+        if ($result["moved"] !== []) {
+            $message .= " " . sprintf($this->txt("moved_up_from_waitlist"), count($result["moved"]));
+        }
+        $this->tpl->setOnScreenMessage("success", $message, true);
+
+        if ($is_c && $target_group_id > 0) {
+            $capacity = $this->grm_repo->getGroupCapacities($mgmt->getId())[$target_group_id] ?? 0;
+            $count = count(array_filter(
+                $this->grm_repo->getAssignments($mgmt->getId()),
+                static fn(int $g): bool => $g === $target_group_id
+            ));
+            if ($count > $capacity) {
+                $this->tpl->setOnScreenMessage("info", sprintf(
+                    $this->txt("group_overbooked"),
+                    $this->esc($groups[$target_group_id]),
+                    $count,
+                    $capacity
+                ), true);
+            }
+        }
+        $this->redirectTo("showManagement", $mgmt);
     }
 
     private function saveCapacities(): void
@@ -1800,17 +1923,20 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
      */
     private function getUserName(int $user_id): string
     {
+        return $this->esc($this->getRawUserName($user_id));
+    }
+
+    /**
+     * @return string "Lastname, Firstname" (not escaped, e.g. for select options)
+     */
+    private function getRawUserName(int $user_id): string
+    {
         static $cache = [];
         if (!isset($cache[$user_id])) {
             $name = ilObjUser::_lookupName($user_id);
-            if (($name["login"] ?? "") === "") {
-                $cache[$user_id] = $this->txt("deleted_user");
-            } else {
-                $cache[$user_id] = $this->esc(trim(
-                    ($name["lastname"] ?? "") . ", " . ($name["firstname"] ?? ""),
-                    ", "
-                ));
-            }
+            $cache[$user_id] = ($name["login"] ?? "") === ""
+                ? $this->txt("deleted_user")
+                : trim(($name["lastname"] ?? "") . ", " . ($name["firstname"] ?? ""), ", ");
         }
         return $cache[$user_id];
     }

@@ -98,6 +98,49 @@ class ilGrmEnrollment
     }
 
     /**
+     * Lecturer: moves a person into another group (also from the waitlist)
+     * or removes him/her ($target_group_id = 0). The capacity is not checked,
+     * lecturers may overbook a group. A place that becomes free is filled
+     * from the waitlist if $fill_from_waitlist is set.
+     *
+     * @return array{ok: bool, moved: int[]} ok = false if the target group does not belong to the management
+     */
+    public function moveMember(int $mgmt_id, int $user_id, int $target_group_id, bool $fill_from_waitlist): array
+    {
+        $result = ["ok" => false, "moved" => []];
+        $this->atomic(function (ilDBInterface $db) use ($mgmt_id, $user_id, $target_group_id, $fill_from_waitlist, &$result): void {
+            if ($target_group_id > 0 && $this->fetchCapacity($db, $mgmt_id, $target_group_id) === null) {
+                return;
+            }
+
+            $set = $db->query(
+                "SELECT group_id FROM " . ilGrmRepository::TABLE_ASSIGN .
+                " WHERE mgmt_id = " . $db->quote($mgmt_id, "integer") .
+                " AND user_id = " . $db->quote($user_id, "integer")
+            );
+            $rec = $db->fetchAssoc($set);
+            $old_group_id = $rec ? (int) $rec["group_id"] : 0;
+
+            foreach ([ilGrmRepository::TABLE_ASSIGN, ilGrmRepository::TABLE_WAIT] as $table) {
+                $db->manipulate(
+                    "DELETE FROM " . $table .
+                    " WHERE mgmt_id = " . $db->quote($mgmt_id, "integer") .
+                    " AND user_id = " . $db->quote($user_id, "integer")
+                );
+            }
+            if ($target_group_id > 0) {
+                $this->insertMember($db, $mgmt_id, $target_group_id, $user_id);
+            }
+
+            $result["ok"] = true;
+            if ($fill_from_waitlist && $old_group_id > 0 && $old_group_id !== $target_group_id) {
+                $result["moved"] = $this->fillFromWaitlist($db, $mgmt_id, $old_group_id);
+            }
+        });
+        return $result;
+    }
+
+    /**
      * Changes the number of places per group; free places are filled from
      * the waitlist right away.
      *

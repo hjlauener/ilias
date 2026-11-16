@@ -101,6 +101,21 @@ capacities_info#:#The number of places can be changed for each group individuall
 save_capacities#:#Save Places
 capacities_saved#:#The places have been saved.
 moved_up_from_waitlist#:#%s people moved up from the waitlist.
+move_member#:#Move or Remove a Person
+move_member_info#:#Choose a person and the new group. "No group" removes the person from his/her group.
+move_member_info_c#:#Choose a person and the new group. "No group" removes the person from his/her group or from the waitlist. A place that becomes free is filled from the waitlist automatically. Full groups can be overbooked.
+move_person#:#Person
+move_choose_person#:#– Choose a person –
+move_target#:#New group
+move_target_none#:#No group (remove from group)
+move_submit#:#Apply
+member_status_none#:#no group
+member_status_waiting#:#waitlist %s
+moved_done#:#%s is now in: %s
+removed_done#:#%s is no longer assigned to a group.
+group_overbooked#:#Attention: %s is now overbooked (%s of %s places).
+move_invalid#:#Please choose a person and a group.
+move_not_member#:#Only members of the course can be assigned to a group.
 not_enrolled_yet#:#Not enrolled yet
 choose_group#:#Choose a group and enroll. First come, first served.
 enroll#:#Enroll

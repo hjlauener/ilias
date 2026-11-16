@@ -50,7 +50,11 @@ Mitglieder eines Kurses in Gruppen einteilen.
      frei gewordene Plätze werden sofort aus der Warteliste besetzt.
    - Einschreiben, Abmelden und Plätze ändern laufen gesperrt (`ilAtomQuery`),
      damit derselbe letzte Platz nicht zweimal vergeben wird.
-6. **Methoden D–J** sind in der Auswahl sichtbar, aber noch deaktiviert
+6. **Personen von Hand verschieben oder entfernen** (alle Methoden): In der
+   Detailansicht unter den Gruppen („Person verschieben oder entfernen“). Bei
+   Methode C wird ein frei gewordener Platz automatisch aus der Warteliste
+   besetzt; Dozierende dürfen volle Gruppen überbelegen.
+7. **Methoden D–J** sind in der Auswahl sichtbar, aber noch deaktiviert
    („in Vorbereitung“).
 
 ## Installation

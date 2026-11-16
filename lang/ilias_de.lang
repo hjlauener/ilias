@@ -101,6 +101,21 @@ capacities_info#:#Die Anzahl Plätze kann für jede Gruppe einzeln geändert wer
 save_capacities#:#Plätze speichern
 capacities_saved#:#Die Plätze wurden gespeichert.
 moved_up_from_waitlist#:#%s Personen sind von der Warteliste nachgerückt.
+move_member#:#Person verschieben oder entfernen
+move_member_info#:#Wählen Sie eine Person und die neue Gruppe. Mit „Keine Gruppe“ wird die Person aus ihrer Gruppe entfernt.
+move_member_info_c#:#Wählen Sie eine Person und die neue Gruppe. Mit „Keine Gruppe“ wird die Person aus ihrer Gruppe oder von der Warteliste entfernt. Ein frei gewordener Platz wird automatisch aus der Warteliste besetzt. Volle Gruppen können überbelegt werden.
+move_person#:#Person
+move_choose_person#:#– Person auswählen –
+move_target#:#Neue Gruppe
+move_target_none#:#Keine Gruppe (aus der Gruppe entfernen)
+move_submit#:#Übernehmen
+member_status_none#:#keine Gruppe
+member_status_waiting#:#Warteliste %s
+moved_done#:#%s ist jetzt in: %s
+removed_done#:#%s ist keiner Gruppe mehr zugeteilt.
+group_overbooked#:#Achtung: %s ist jetzt überbelegt (%s von %s Plätzen).
+move_invalid#:#Bitte eine Person und eine Gruppe auswählen.
+move_not_member#:#Nur Mitglieder des Kurses können einer Gruppe zugeteilt werden.
 not_enrolled_yet#:#Noch nicht eingeschrieben
 choose_group#:#Wählen Sie eine Gruppe und schreiben Sie sich ein. Wer zuerst kommt, erhält den Platz.
 enroll#:#Einschreiben
