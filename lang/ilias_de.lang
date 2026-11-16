@@ -132,7 +132,7 @@ enroll_not_member#:#Nur Mitglieder des Kurses können sich einschreiben.
 enroll_closed#:#Die Einschreibung ist nicht geöffnet.
 unenroll_done#:#Sie haben sich abgemeldet.
 show_all_groups#:#Studierende sehen alle Gruppen
-show_all_groups_info#:#Wenn aktiviert, sehen Studierende nach „Los“ die gesamte Gruppeneinteilung. Sonst sehen sie nur die eigene Gruppe.
+show_all_groups_info#:#Eingeschaltet sehen Studierende, wer in welcher Gruppe ist. Ausgeschaltet sehen sie nur die Mitglieder ihrer eigenen Gruppe – bei Methode C von den anderen Gruppen nur die freien Plätze. Die Einteilung wird erst nach „Los“ angezeigt.
 summary_groups#:#%s Gruppen
 summary_topics#:#%s Themen
 settings_locked_published#:#Die Einteilung ist freigegeben. Um die Gruppen zu ändern, zuerst die Freigabe zurücknehmen.

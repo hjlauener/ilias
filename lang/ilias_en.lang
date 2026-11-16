@@ -132,7 +132,7 @@ enroll_not_member#:#Only members of the course can enroll.
 enroll_closed#:#The enrollment is not open.
 unenroll_done#:#You have left.
 show_all_groups#:#Students see all groups
-show_all_groups_info#:#If checked, students see the complete group assignment after "Go". Otherwise they only see their own group.
+show_all_groups_info#:#If checked, students see who is in which group. Otherwise they only see the members of their own group – for method C only the free places of the other groups. The assignment is only shown after "Go".
 summary_groups#:#%s groups
 summary_topics#:#%s topics
 settings_locked_published#:#The assignment has been published. To change the groups, unpublish it first.
