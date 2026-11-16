@@ -16,9 +16,20 @@ final class ilGrmMethods
     /** Lecturer decides: random assignment into groups of a fixed size (2, 3, 4, …) */
     public const METHOD_B = "b";
 
+    /** First come – first serve: students enroll themselves, optional waitlist */
+    public const METHOD_C = "c";
+
     public const ALL = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
-    public const IMPLEMENTED = [self::METHOD_A, self::METHOD_B];
+    public const IMPLEMENTED = [self::METHOD_A, self::METHOD_B, self::METHOD_C];
+
+    /** Methods where the lecturer distributes the people randomly (draw) */
+    public const RANDOM_DRAW = [self::METHOD_A, self::METHOD_B];
+
+    public static function usesRandomDraw(string $method): bool
+    {
+        return in_array($method, self::RANDOM_DRAW, true);
+    }
 
     public static function isValid(string $method): bool
     {

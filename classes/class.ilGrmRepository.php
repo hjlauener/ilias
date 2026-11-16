@@ -11,8 +11,9 @@ class ilGrmRepository
     public const TABLE_MGMT = "rep_robj_xgrm_mgmt";
     public const TABLE_GROUP = "rep_robj_xgrm_group";
     public const TABLE_ASSIGN = "rep_robj_xgrm_assign";
+    public const TABLE_WAIT = "rep_robj_xgrm_wait";
 
-    public const TABLES = [self::TABLE_DATA, self::TABLE_MGMT, self::TABLE_GROUP, self::TABLE_ASSIGN];
+    public const TABLES = [self::TABLE_DATA, self::TABLE_MGMT, self::TABLE_GROUP, self::TABLE_ASSIGN, self::TABLE_WAIT];
 
     private ilDBInterface $db;
 
@@ -86,6 +87,7 @@ class ilGrmRepository
             "show_all" => ["integer", (int) $mgmt->isShowAllGroups()],
             "group_size" => ["integer", $mgmt->getGroupSize()],
             "remainder_mode" => ["text", $mgmt->getRemainderMode()],
+            "waitlist" => ["integer", (int) $mgmt->hasWaitlist()],
             "created" => ["integer", $mgmt->getCreated()],
             "published" => ["integer", $mgmt->getPublished()],
         ];
@@ -192,6 +194,7 @@ class ilGrmRepository
                 "mgmt_id" => ["integer", $mgmt_id],
                 "title" => ["text", $title],
                 "position" => ["integer", $position],
+                "capacity" => ["integer", 0],
             ]);
             $group_ids[$position] = $group_id;
         }
@@ -220,8 +223,66 @@ class ilGrmRepository
         }
     }
 
+    /**
+     * Method c: creates empty groups with the given number of places
+     * (replaces existing groups, enrollments and waitlist).
+     *
+     * @param string[] $group_titles
+     */
+    public function createGroups(int $mgmt_id, array $group_titles, int $capacity): void
+    {
+        $this->deleteGroupsAndAssignments($mgmt_id);
+        foreach (array_values($group_titles) as $position => $title) {
+            $this->db->insert(self::TABLE_GROUP, [
+                "id" => ["integer", $this->db->nextId(self::TABLE_GROUP)],
+                "mgmt_id" => ["integer", $mgmt_id],
+                "title" => ["text", $title],
+                "position" => ["integer", $position],
+                "capacity" => ["integer", $capacity],
+            ]);
+        }
+    }
+
+    /**
+     * @return array<int, int> group id => number of places (method c)
+     */
+    public function getGroupCapacities(int $mgmt_id): array
+    {
+        $set = $this->db->query(
+            "SELECT id, capacity FROM " . self::TABLE_GROUP .
+            " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer")
+        );
+        $capacities = [];
+        while ($rec = $this->db->fetchAssoc($set)) {
+            $capacities[(int) $rec["id"]] = (int) $rec["capacity"];
+        }
+        return $capacities;
+    }
+
+    /**
+     * Waitlist in order (first entry moves up first).
+     *
+     * @return array<int, int> user id => group id
+     */
+    public function getWaitlist(int $mgmt_id): array
+    {
+        $set = $this->db->query(
+            "SELECT user_id, group_id FROM " . self::TABLE_WAIT .
+            " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer") .
+            " ORDER BY position, user_id"
+        );
+        $list = [];
+        while ($rec = $this->db->fetchAssoc($set)) {
+            $list[(int) $rec["user_id"]] = (int) $rec["group_id"];
+        }
+        return $list;
+    }
+
     public function deleteGroupsAndAssignments(int $mgmt_id): void
     {
+        $this->db->manipulate(
+            "DELETE FROM " . self::TABLE_WAIT . " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer")
+        );
         $this->db->manipulate(
             "DELETE FROM " . self::TABLE_ASSIGN . " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer")
         );
@@ -245,7 +306,8 @@ class ilGrmRepository
         $mgmt->setTopics(ilGrmManagement::parseTopics((string) ($rec["topics"] ?? "")));
         $mgmt->setShowAllGroups((bool) $rec["show_all"]);
         $mgmt->setGroupSize((int) ($rec["group_size"] ?? 3));
-        $mgmt->setRemainderMode((string) ($rec["remainder_mode"] ?? ilGrmManagement::REMAINDER_NEAREST));
+        $mgmt->setRemainderMode((string) ($rec["remainder_mode"] ?? ilGrmManagement::REMAINDER_SMALLER));
+        $mgmt->setWaitlist((bool) ($rec["waitlist"] ?? true));
         $mgmt->setCreated((int) $rec["created"]);
         $mgmt->setPublished($rec["published"] !== null ? (int) $rec["published"] : null);
         return $mgmt;

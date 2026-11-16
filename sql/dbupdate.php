@@ -75,3 +75,43 @@ if (!$ilDB->tableColumnExists('rep_robj_xgrm_mgmt', 'remainder_mode')) {
     ]);
 }
 ?>
+<#6>
+<?php
+/** @var ilDBInterface $ilDB */
+// method b: option "as close as possible" was removed
+$ilDB->manipulate(
+    "UPDATE rep_robj_xgrm_mgmt SET remainder_mode = " . $ilDB->quote('smaller', 'text') .
+    " WHERE remainder_mode = " . $ilDB->quote('nearest', 'text')
+);
+?>
+<#7>
+<?php
+/** @var ilDBInterface $ilDB */
+// method c: waitlist option and number of places per group
+if (!$ilDB->tableColumnExists('rep_robj_xgrm_mgmt', 'waitlist')) {
+    $ilDB->addTableColumn('rep_robj_xgrm_mgmt', 'waitlist', [
+        'type' => 'integer', 'length' => 1, 'notnull' => true, 'default' => 1,
+    ]);
+}
+if (!$ilDB->tableColumnExists('rep_robj_xgrm_group', 'capacity')) {
+    $ilDB->addTableColumn('rep_robj_xgrm_group', 'capacity', [
+        'type' => 'integer', 'length' => 4, 'notnull' => true, 'default' => 0,
+    ]);
+}
+?>
+<#8>
+<?php
+/** @var ilDBInterface $ilDB */
+// method c: waitlist
+if (!$ilDB->tableExists('rep_robj_xgrm_wait')) {
+    $ilDB->createTable('rep_robj_xgrm_wait', [
+        'mgmt_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'user_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'group_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'position' => ['type' => 'integer', 'length' => 4, 'notnull' => true, 'default' => 0],
+        'created' => ['type' => 'integer', 'length' => 4, 'notnull' => true, 'default' => 0],
+    ]);
+    $ilDB->addPrimaryKey('rep_robj_xgrm_wait', ['mgmt_id', 'user_id']);
+    $ilDB->addIndex('rep_robj_xgrm_wait', ['group_id'], 'i1');
+}
+?>

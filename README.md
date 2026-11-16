@@ -36,13 +36,21 @@ Mitglieder eines Kurses in Gruppen einteilen.
    - Die Dozierenden geben die Gruppengrösse ein (2er-, 3er-, 4er-Gruppen …);
      die Anzahl Gruppen ergibt sich aus der Anzahl Kursmitglieder.
    - Wenn es nicht aufgeht:
-     - *möglichst genau die gewünschte Grösse* (Voreinstellung): einzelne
-       Gruppen eine Person mehr oder weniger (11 Personen, 4er → 4, 4, 3),
-     - *höchstens so gross*: einzelne Gruppen kleiner (10 Personen, 3er → 3, 3, 2, 2),
+     - *höchstens so gross* (Voreinstellung): einzelne Gruppen kleiner (10 Personen, 3er → 3, 3, 2, 2),
      - *mindestens so gross*: übrige Personen werden verteilt (11 Personen, 4er → 6, 5).
    - Gleiche Abläufe wie bei Methode A: Zufallszuteilung (Vorschau), „Los“,
      Freigabe zurücknehmen, neue Kursmitglieder zuteilen.
-5. **Methoden C–J** sind in der Auswahl sichtbar, aber noch deaktiviert
+5. **Methode C – First Come – First Serve** (umgesetzt)
+   - Die Dozierenden legen Anzahl Gruppen und Gruppengrösse (= Plätze pro Gruppe) fest.
+   - **„Los – Einschreibung öffnen“** erstellt die Gruppen; die Studierenden
+     schreiben sich selbst ein – wer zuerst kommt, erhält den Platz.
+   - Optional **Warteliste**: Ist eine Gruppe voll, kommen Studierende auf die
+     Warteliste; meldet sich jemand ab, rückt die erste Person automatisch nach.
+   - Nach der Vergabe können die **Plätze pro Gruppe einzeln geändert** werden;
+     frei gewordene Plätze werden sofort aus der Warteliste besetzt.
+   - Einschreiben, Abmelden und Plätze ändern laufen gesperrt (`ilAtomQuery`),
+     damit derselbe letzte Platz nicht zweimal vergeben wird.
+6. **Methoden D–J** sind in der Auswahl sichtbar, aber noch deaktiviert
    („in Vorbereitung“).
 
 ## Installation
@@ -91,7 +99,7 @@ das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.
 `draft` (noch nicht ausgelost) → `drawn` (ausgelost, nur Dozierende) →
 `published` (nach „Los“, für Studierende sichtbar).
 
-### Weitere Methoden hinzufügen (C–J)
+### Weitere Methoden hinzufügen (D–J)
 
 1. Methode in `ilGrmMethods::IMPLEMENTED` eintragen.
 2. Methodenspezifische Einstellungen im Formular

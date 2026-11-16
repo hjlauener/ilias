@@ -96,9 +96,6 @@ class ilGrmRandomAssignerTest extends TestCase
         $mgmt = new ilGrmManagement(1, ilGrmMethods::METHOD_B);
         $mgmt->setGroupSize(4);
 
-        $mgmt->setRemainderMode(ilGrmManagement::REMAINDER_NEAREST);
-        $this->assertSame(3, $mgmt->getEffectiveNumberOfGroups(11));   // 4, 4, 3
-
         $mgmt->setRemainderMode(ilGrmManagement::REMAINDER_SMALLER);
         $this->assertSame(3, $mgmt->getEffectiveNumberOfGroups(11));   // 4, 4, 3
 

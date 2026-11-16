@@ -24,14 +24,12 @@ class ilGrmManagement
 
     public const MAX_GROUPS = 500;
 
-    /** Method b: number of groups so that the groups are as close as possible to the group size */
-    public const REMAINDER_NEAREST = "nearest";
     /** Method b: groups are at most as large as the group size (some become smaller) */
     public const REMAINDER_SMALLER = "smaller";
     /** Method b: groups are at least as large as the group size (remaining people are distributed) */
     public const REMAINDER_DISTRIBUTE = "distribute";
 
-    public const REMAINDER_MODES = [self::REMAINDER_NEAREST, self::REMAINDER_SMALLER, self::REMAINDER_DISTRIBUTE];
+    public const REMAINDER_MODES = [self::REMAINDER_SMALLER, self::REMAINDER_DISTRIBUTE];
 
     public const MIN_GROUP_SIZE = 2;
     public const MAX_GROUP_SIZE = 100;
@@ -48,7 +46,9 @@ class ilGrmManagement
     private array $topics = [];
     private bool $show_all_groups = true;
     private int $group_size = 3;
-    private string $remainder_mode = self::REMAINDER_NEAREST;
+    private string $remainder_mode = self::REMAINDER_SMALLER;
+    /** Method c: waitlist with automatic move-up */
+    private bool $waitlist = true;
     private int $created = 0;
     private ?int $published = null;
 
@@ -183,7 +183,30 @@ class ilGrmManagement
     {
         $this->remainder_mode = in_array($remainder_mode, self::REMAINDER_MODES, true)
             ? $remainder_mode
-            : self::REMAINDER_NEAREST;
+            : self::REMAINDER_SMALLER;
+    }
+
+    public function hasWaitlist(): bool
+    {
+        return $this->waitlist;
+    }
+
+    public function setWaitlist(bool $waitlist): void
+    {
+        $this->waitlist = $waitlist;
+    }
+
+    /**
+     * Method c: number of places of a new group (= group size).
+     */
+    public function getPlacesPerGroup(): int
+    {
+        return $this->group_size;
+    }
+
+    public function setPlacesPerGroup(int $places): void
+    {
+        $this->group_size = max(1, min(self::MAX_GROUP_SIZE, $places));
     }
 
     public function getCreated(): int
@@ -218,16 +241,9 @@ class ilGrmManagement
             if ($member_count <= 0) {
                 return 0;
             }
-            switch ($this->remainder_mode) {
-                case self::REMAINDER_SMALLER:
-                    $groups = (int) ceil($member_count / $this->group_size);
-                    break;
-                case self::REMAINDER_DISTRIBUTE:
-                    $groups = intdiv($member_count, $this->group_size);
-                    break;
-                default:
-                    $groups = (int) round($member_count / $this->group_size);
-            }
+            $groups = $this->remainder_mode === self::REMAINDER_DISTRIBUTE
+                ? intdiv($member_count, $this->group_size)
+                : (int) ceil($member_count / $this->group_size);
             return max(1, min(self::MAX_GROUPS, $groups));
         }
         return $this->usesTopics() ? count($this->topics) : $this->num_groups;

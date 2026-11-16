@@ -8,7 +8,8 @@ ILIAS Repository-Objekt-Plugin (ID `xgrm`). Ziel-Versionen: ILIAS 9, 10 und 11
 - **Jeder neue oder geänderte Text kommt immer in beide Dateien:**
   `lang/ilias_de.lang` und `lang/ilias_en.lang`. Die Schlüssel beider Dateien
   müssen identisch sein (gleiche Reihenfolge).
-- Deutsch ohne englische Begriffe (z.B. „Los“ statt „Go“, „Sichtbar“ statt „Online“).
+- Deutsch ohne englische Begriffe (z.B. „Los“ statt „Go“). Ausnahmen, die
+  bleiben: „Online“/„Offline“ (Einstellungen), „First Come – First Serve“ (Methode C).
   Schweizer Schreibweise (ss statt ß).
 - Kein Text fest im PHP-Code; Plugin-Texte über `$this->txt("key")`.
 
@@ -28,6 +29,8 @@ diff <(cut -d'#' -f1 lang/ilias_de.lang) <(cut -d'#' -f1 lang/ilias_en.lang)
 - Mehrere Gruppenmanagements können gleichzeitig aktiv sein (pro
   Gruppenmanagement genau eine Methode a–j). Studierende sehen zuerst eine
   Übersicht der aktiven, die eigene Gruppe steht in der Detailansicht abgehoben zuoberst.
+- Methode C (Einschreibung mit Plätzen/Warteliste): Änderungen an Einschreibungen
+  nur über `ilGrmEnrollment` (gesperrt mit `ilAtomQuery`), nie direkt.
 - Eigene Gestaltung (z.B. rote Titel) nur über `templates/css/xgrm.css`
   (wird in `addPluginCss()` auf allen Plugin-Seiten geladen), keine Inline-Styles.
 - Nur UI-Aufrufe verwenden, die in ILIAS 9, 10 und 11 gleich sind

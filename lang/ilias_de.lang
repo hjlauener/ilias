@@ -7,10 +7,10 @@ content#:#Inhalt
 properties#:#Einstellungen
 edit#:#Bearbeiten
 status#:#Status
-online#:#Sichtbar
-online_info#:#Nur wenn das Objekt sichtbar geschaltet ist, können Studierende es sehen.
-offline#:#Nicht sichtbar
-object_offline_info#:#Dieses Objekt ist für Studierende nicht sichtbar. Sie können es unter „Einstellungen“ sichtbar schalten.
+online#:#Online
+online_info#:#Nur wenn das Objekt online ist, können Studierende es sehen.
+offline#:#Offline
+object_offline_info#:#Dieses Objekt ist offline und für Studierende nicht sichtbar. Sie können es unter „Einstellungen“ online schalten.
 group_management#:#Gruppenmanagement
 active_managements#:#Aktive Gruppenmanagements
 none#:#Keines
@@ -33,8 +33,8 @@ method_a#:#A – Zufallszuteilung durch Dozierende
 method_a_info#:#Die Dozierenden entscheiden: Die Mitglieder des übergeordneten Kurses werden nach dem Zufallsprinzip auf eine feste Anzahl Gruppen oder Themen verteilt. Die Einteilung wird erst nach „Los“ für die Studierenden sichtbar.
 method_b#:#B – Feste Gruppengrösse
 method_b_info#:#Die Dozierenden legen fest, wie viele Personen eine Gruppe hat (2er-, 3er-, 4er-Gruppen usw.). Die Mitglieder des übergeordneten Kurses werden nach dem Zufallsprinzip eingeteilt; die Anzahl Gruppen ergibt sich aus der Anzahl Kursmitglieder. Die Einteilung wird erst nach „Los“ für die Studierenden sichtbar.
-method_c#:#C – (in Vorbereitung)
-method_c_info#:#Diese Methode ist noch nicht verfügbar.
+method_c#:#C – First Come – First Serve
+method_c_info#:#Die Studierenden schreiben sich selbst in eine Gruppe ein – wer zuerst kommt, erhält den Platz. Die Gruppengrösse bestimmt die Anzahl Plätze; optional mit Warteliste und automatischem Nachrücken bei Abmeldung. Nach der Vergabe können die Plätze pro Gruppe einzeln geändert werden.
 method_d#:#D – (in Vorbereitung)
 method_d_info#:#Diese Methode ist noch nicht verfügbar.
 method_e#:#E – (in Vorbereitung)
@@ -64,17 +64,58 @@ group_size#:#Gruppengrösse (Personen pro Gruppe)
 group_size_info#:#Zum Beispiel 2 für 2er-Gruppen, 3 für 3er-Gruppen, 4 für 4er-Gruppen.
 group_size_invalid#:#Bitte eine Gruppengrösse zwischen %s und %s angeben.
 remainder_mode#:#Wenn die Anzahl Kursmitglieder nicht aufgeht
-remainder_nearest#:#Möglichst genau die gewünschte Grösse (empfohlen)
-remainder_nearest_info#:#Einzelne Gruppen haben eine Person mehr oder weniger, z. B. 4er-Gruppen und einzelne 3er- oder 5er-Gruppen.
 remainder_smaller#:#Gruppen höchstens so gross wie angegeben
 remainder_smaller_info#:#Einzelne Gruppen werden kleiner, z. B. 4er-Gruppen und einzelne 3er-Gruppen.
 remainder_distribute#:#Gruppen mindestens so gross wie angegeben
 remainder_distribute_info#:#Übrige Personen werden auf die Gruppen verteilt, einzelne Gruppen werden grösser, z. B. 4er-Gruppen und einzelne 5er- oder 6er-Gruppen.
-remainder_nearest_short#:#möglichst genau
 remainder_smaller_short#:#höchstens so gross
 remainder_distribute_short#:#mindestens so gross
 summary_group_size#:#%ser-Gruppen
 expected_groups#:#Voraussichtliche Anzahl Gruppen
+places_per_group#:#Plätze pro Gruppe (Gruppengrösse)
+places_per_group_info#:#Die Gruppengrösse bestimmt die Anzahl Plätze. Nach dem Öffnen der Einschreibung können die Plätze pro Gruppe einzeln geändert werden.
+places_invalid#:#Bitte eine Anzahl Plätze zwischen 1 und %s angeben.
+waitlist_setting#:#Warteliste
+waitlist_setting_info#:#Ist eine Gruppe voll, können sich Studierende auf die Warteliste setzen. Meldet sich jemand ab oder werden Plätze frei, rückt die erste Person der Warteliste automatisch nach.
+summary_c#:#%s Gruppen mit je %s Plätzen
+waitlist_on#:#mit Warteliste
+waitlist_off#:#ohne Warteliste
+settings_locked_c#:#Die Gruppen bestehen bereits. Die Plätze können in der Detailansicht pro Gruppe geändert werden.
+status_c_draft#:#Einschreibung noch nicht geöffnet
+status_c_drawn#:#Einschreibung geschlossen (nur für Dozierende sichtbar)
+status_c_published#:#Einschreibung offen
+go_c#:#Los – Einschreibung öffnen
+confirm_go_c#:#Soll die Einschreibung jetzt geöffnet werden? Die Studierenden können sich danach selbst in die Gruppen einschreiben – wer zuerst kommt, erhält den Platz.
+go_done_c#:#Die Einschreibung ist jetzt geöffnet.
+not_open_yet#:#Die Einschreibung ist noch nicht geöffnet. Mit „Los“ werden die Gruppen erstellt und die Studierenden können sich einschreiben.
+enrollments#:#Einschreibungen
+places#:#Plätze
+places_taken#:#%s von %s Plätzen belegt
+places_free#:#%s von %s Plätzen frei
+group_full#:#Voll
+members#:#Mitglieder
+waitlist#:#Warteliste
+waitlist_count#:#%s Personen warten
+capacities#:#Plätze pro Gruppe ändern
+capacities_info#:#Die Anzahl Plätze kann für jede Gruppe einzeln geändert werden. Werden dadurch Plätze frei, rücken Personen von der Warteliste automatisch nach.
+save_capacities#:#Plätze speichern
+capacities_saved#:#Die Plätze wurden gespeichert.
+moved_up_from_waitlist#:#%s Personen sind von der Warteliste nachgerückt.
+not_enrolled_yet#:#Noch nicht eingeschrieben
+choose_group#:#Wählen Sie eine Gruppe und schreiben Sie sich ein. Wer zuerst kommt, erhält den Platz.
+enroll#:#Einschreiben
+join_waitlist#:#Auf die Warteliste
+unenroll#:#Abmelden
+leave_waitlist#:#Von der Warteliste abmelden
+confirm_unenroll#:#Wollen Sie sich wirklich aus der Gruppe abmelden? Ihr Platz geht an die nächste Person auf der Warteliste.
+confirm_leave_waitlist#:#Wollen Sie sich wirklich von der Warteliste abmelden?
+on_waitlist_for#:#Sie stehen auf der Warteliste für <strong>%s</strong> (Platz %s).
+enroll_success#:#Sie sind jetzt in: <strong>%s</strong>
+enroll_full#:#Die Gruppe ist bereits voll.
+enroll_already#:#Sie sind bereits in einer Gruppe eingeschrieben oder stehen auf einer Warteliste.
+enroll_not_member#:#Nur Mitglieder des Kurses können sich einschreiben.
+enroll_closed#:#Die Einschreibung ist nicht geöffnet.
+unenroll_done#:#Sie haben sich abgemeldet.
 show_all_groups#:#Studierende sehen alle Gruppen
 show_all_groups_info#:#Wenn aktiviert, sehen Studierende nach „Los“ die gesamte Gruppeneinteilung. Sonst sehen sie nur die eigene Gruppe.
 summary_groups#:#%s Gruppen

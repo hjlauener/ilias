@@ -33,8 +33,8 @@ method_a#:#A – Random assignment by lecturer
 method_a_info#:#The lecturer decides: the members of the parent course are randomly assigned to a fixed number of groups or topics. The assignment becomes visible for students after "Go".
 method_b#:#B – Fixed group size
 method_b_info#:#The lecturer defines how many people a group has (groups of 2, 3, 4, …). The members of the parent course are assigned randomly; the number of groups results from the number of course members. The assignment becomes visible for students after "Go".
-method_c#:#C – (coming soon)
-method_c_info#:#This method is not available yet.
+method_c#:#C – First come, first served
+method_c_info#:#Students enroll themselves into a group – first come, first served. The group size defines the number of places; optionally with a waitlist and automatic move-up when someone leaves. After the allocation, the places can be changed for each group individually.
 method_d#:#D – (coming soon)
 method_d_info#:#This method is not available yet.
 method_e#:#E – (coming soon)
@@ -64,17 +64,58 @@ group_size#:#Group size (people per group)
 group_size_info#:#For example 2 for groups of two, 3 for groups of three, 4 for groups of four.
 group_size_invalid#:#Please enter a group size between %s and %s.
 remainder_mode#:#If the number of course members does not add up
-remainder_nearest#:#As close as possible to the group size (recommended)
-remainder_nearest_info#:#Some groups have one person more or less, e.g. groups of 4 and a few groups of 3 or 5.
 remainder_smaller#:#Groups at most as large as specified
 remainder_smaller_info#:#Some groups become smaller, e.g. groups of 4 and a few groups of 3.
 remainder_distribute#:#Groups at least as large as specified
 remainder_distribute_info#:#Remaining people are distributed to the groups, some groups become larger, e.g. groups of 4 and a few groups of 5 or 6.
-remainder_nearest_short#:#as close as possible
 remainder_smaller_short#:#at most this size
 remainder_distribute_short#:#at least this size
 summary_group_size#:#groups of %s
 expected_groups#:#Expected number of groups
+places_per_group#:#Places per group (group size)
+places_per_group_info#:#The group size defines the number of places. After opening the enrollment, the places can be changed for each group individually.
+places_invalid#:#Please enter a number of places between 1 and %s.
+waitlist_setting#:#Waitlist
+waitlist_setting_info#:#If a group is full, students can join the waitlist. If someone leaves or places become free, the first person on the waitlist moves up automatically.
+summary_c#:#%s groups with %s places each
+waitlist_on#:#with waitlist
+waitlist_off#:#without waitlist
+settings_locked_c#:#The groups already exist. The places can be changed for each group in the detail view.
+status_c_draft#:#Enrollment not opened yet
+status_c_drawn#:#Enrollment closed (visible for lecturers only)
+status_c_published#:#Enrollment open
+go_c#:#Go – open enrollment
+confirm_go_c#:#Do you want to open the enrollment now? Students can then enroll themselves into the groups – first come, first served.
+go_done_c#:#The enrollment is now open.
+not_open_yet#:#The enrollment has not been opened yet. "Go" creates the groups and students can enroll.
+enrollments#:#Enrollments
+places#:#Places
+places_taken#:#%s of %s places taken
+places_free#:#%s of %s places free
+group_full#:#Full
+members#:#Members
+waitlist#:#Waitlist
+waitlist_count#:#%s people waiting
+capacities#:#Change Places per Group
+capacities_info#:#The number of places can be changed for each group individually. If places become free, people on the waitlist move up automatically.
+save_capacities#:#Save Places
+capacities_saved#:#The places have been saved.
+moved_up_from_waitlist#:#%s people moved up from the waitlist.
+not_enrolled_yet#:#Not enrolled yet
+choose_group#:#Choose a group and enroll. First come, first served.
+enroll#:#Enroll
+join_waitlist#:#Join Waitlist
+unenroll#:#Leave Group
+leave_waitlist#:#Leave Waitlist
+confirm_unenroll#:#Do you really want to leave the group? Your place goes to the next person on the waitlist.
+confirm_leave_waitlist#:#Do you really want to leave the waitlist?
+on_waitlist_for#:#You are on the waitlist for <strong>%s</strong> (position %s).
+enroll_success#:#You are now in: <strong>%s</strong>
+enroll_full#:#The group is already full.
+enroll_already#:#You are already enrolled in a group or on a waitlist.
+enroll_not_member#:#Only members of the course can enroll.
+enroll_closed#:#The enrollment is not open.
+unenroll_done#:#You have left.
 show_all_groups#:#Students see all groups
 show_all_groups_info#:#If checked, students see the complete group assignment after "Go". Otherwise they only see their own group.
 summary_groups#:#%s groups

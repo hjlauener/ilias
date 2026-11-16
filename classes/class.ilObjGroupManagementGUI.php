@@ -24,6 +24,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private const TAB_PROPERTIES = "properties";
 
     private const PARAM_MGMT_ID = "mgmt_id";
+    private const PARAM_GROUP_ID = "group_id";
     /** after an action: back to the detail view instead of the overview */
     private const PARAM_RETURN = "grm_return";
     private const RETURN_DETAIL = "detail";
@@ -44,6 +45,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "goManagement",
         "unpublishManagement",
         "assignLatecomers",
+        "saveCapacities",
     ];
 
     /** Commands that need read permission */
@@ -51,9 +53,12 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "showContent",
         "showStudentView",
         "showStudentManagement",
+        "enrollGroup",
+        "unenrollGroup",
     ];
 
     private ilGrmRepository $grm_repo;
+    private ilGrmEnrollment $grm_enrollment;
     private ilGrmCourseContext $grm_course;
     private Refinery $grm_refinery;
     private ArrayBasedRequestWrapper $grm_query;
@@ -64,6 +69,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         global $DIC;
 
         $this->grm_repo = new ilGrmRepository($DIC->database());
+        $this->grm_enrollment = new ilGrmEnrollment($DIC->database());
         $this->grm_course = new ilGrmCourseContext($DIC->repositoryTree());
         $this->grm_refinery = $DIC->refinery();
         $this->grm_query = $DIC->http()->wrapper()->query();
@@ -293,6 +299,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $this->tabs->activateTab(self::TAB_CONTENT);
         $this->showContextMessages();
 
+        $is_c = $mgmt->getMethod() === ilGrmMethods::METHOD_C;
+        $uses_draw = ilGrmMethods::usesRandomDraw($mgmt->getMethod());
+
         $f = $this->ui_factory;
         $this->toolbar->addComponent($f->button()->standard(
             $this->txt("back_to_overview"),
@@ -308,24 +317,32 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 $this->linkTo("editManagement", $mgmt)
             ));
 
-            $draw_label = $mgmt->isDrawn() ? $this->txt("redraw") : $this->txt("draw");
-            $modals[] = $modal = $this->buildConfirmModal(
-                $mgmt,
-                $mgmt->isDrawn() ? $this->txt("confirm_redraw") : $this->txt("confirm_draw"),
-                "drawManagement",
-                $draw_label
-            );
-            $this->toolbar->addComponent($f->button()->standard($draw_label, "")->withOnClick($modal->getShowSignal()));
+            if ($uses_draw) {
+                $draw_label = $mgmt->isDrawn() ? $this->txt("redraw") : $this->txt("draw");
+                $modals[] = $modal = $this->buildConfirmModal(
+                    $mgmt,
+                    $mgmt->isDrawn() ? $this->txt("confirm_redraw") : $this->txt("confirm_draw"),
+                    "drawManagement",
+                    $draw_label
+                );
+                $this->toolbar->addComponent($f->button()->standard($draw_label, "")->withOnClick($modal->getShowSignal()));
+            }
 
-            $go_message = $this->txt("confirm_go");
-            if (!$mgmt->isDrawn()) {
-                $go_message .= " " . $this->txt("confirm_go_draw_first");
+            if ($is_c) {
+                $go_label = $this->txt("go_c");
+                $go_message = $this->txt("confirm_go_c");
+            } else {
+                $go_label = $this->txt("go");
+                $go_message = $this->txt("confirm_go");
+                if (!$mgmt->isDrawn()) {
+                    $go_message .= " " . $this->txt("confirm_go_draw_first");
+                }
             }
             if (!$mgmt->isActive()) {
                 $go_message .= " " . $this->txt("confirm_go_activate");
             }
-            $modals[] = $modal = $this->buildConfirmModal($mgmt, $go_message, "goManagement", $this->txt("go"));
-            $this->toolbar->addComponent($f->button()->primary($this->txt("go"), "")->withOnClick($modal->getShowSignal()));
+            $modals[] = $modal = $this->buildConfirmModal($mgmt, $go_message, "goManagement", $go_label);
+            $this->toolbar->addComponent($f->button()->primary($go_label, "")->withOnClick($modal->getShowSignal()));
         } else {
             $modals[] = $modal = $this->buildConfirmModal(
                 $mgmt,
@@ -353,7 +370,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $members = $this->getCourseMembers();
         $unassigned = array_values(array_diff($members, array_keys($assignments)));
 
-        if ($mgmt->isDrawn() && $unassigned !== []) {
+        if ($uses_draw && $mgmt->isDrawn() && $unassigned !== []) {
             $this->tpl->setOnScreenMessage(
                 "info",
                 sprintf($this->txt("unassigned_members_info"), count($unassigned))
@@ -373,6 +390,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->tpl->setOnScreenMessage("info", $this->txt("published_but_inactive"));
         }
 
+        $capacities = $is_c ? $this->grm_repo->getGroupCapacities($mgmt->getId()) : [];
+        $waitlist = $is_c ? $this->grm_repo->getWaitlist($mgmt->getId()) : [];
+
         $properties = $this->getManagementProperties($mgmt);
         $properties[$this->txt("course_members")] = (string) count($members);
         if ($mgmt->usesTopics()) {
@@ -380,6 +400,14 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_B && !$mgmt->isDrawn() && $members !== []) {
             $properties[$this->txt("expected_groups")] = (string) $mgmt->getEffectiveNumberOfGroups(count($members));
+        }
+        if ($is_c && $mgmt->isDrawn()) {
+            $properties[$this->txt("enrollments")] = sprintf(
+                $this->txt("places_taken"),
+                count($assignments),
+                array_sum($capacities)
+            );
+            $properties[$this->txt("waitlist")] = (string) count($waitlist);
         }
         if ($mgmt->getPublished() !== null) {
             $properties[$this->txt("published_at")] = ilDatePresentation::formatDate(
@@ -393,24 +421,147 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 $f->listing()->descriptive($properties)
             ),
         ];
+        $form_html = "";
 
         if ($mgmt->isDrawn()) {
-            $components = array_merge(
-                $components,
-                $this->buildGroupPanels($groups, $assignments, null, $members)
-            );
-            if ($unassigned !== []) {
+            if ($is_c) {
+                $components = array_merge(
+                    $components,
+                    $this->buildEnrollmentPanels($groups, $assignments, $capacities, $waitlist, $members)
+                );
+                $form_html = $this->initCapacityForm($mgmt, $groups, $capacities)->getHTML();
+            } else {
+                $components = array_merge(
+                    $components,
+                    $this->buildGroupPanels($groups, $assignments, null, $members)
+                );
+            }
+            $not_in_group = array_values(array_diff($unassigned, array_keys($waitlist)));
+            if ($not_in_group !== []) {
                 $components[] = $f->panel()->standard(
-                    $this->txt("not_assigned") . " (" . count($unassigned) . ")",
-                    $f->listing()->unordered($this->getSortedNames($unassigned))
+                    ($is_c ? $this->txt("not_enrolled_yet") : $this->txt("not_assigned")) . " (" . count($not_in_group) . ")",
+                    $f->listing()->unordered($this->getSortedNames($not_in_group))
                 );
             }
         } else {
-            $components[] = $f->messageBox()->info($this->txt("not_drawn_yet"));
+            $components[] = $f->messageBox()->info($is_c ? $this->txt("not_open_yet") : $this->txt("not_drawn_yet"));
         }
-        $components = array_merge($components, $modals);
 
-        $this->tpl->setContent($this->ui_renderer->render($components));
+        $this->tpl->setContent(
+            $this->ui_renderer->render($components) . $form_html . $this->ui_renderer->render($modals)
+        );
+    }
+
+    /**
+     * Method c (lecturer view): groups with places, members and waitlist.
+     *
+     * @param array<int, string> $groups      group id => title
+     * @param array<int, int>    $assignments user id => group id
+     * @param array<int, int>    $capacities  group id => places
+     * @param array<int, int>    $waitlist    user id => group id (in order)
+     * @param int[]              $course_members
+     * @return Component[]
+     */
+    private function buildEnrollmentPanels(
+        array $groups,
+        array $assignments,
+        array $capacities,
+        array $waitlist,
+        array $course_members
+    ): array {
+        $f = $this->ui_factory;
+        $panels = [];
+        foreach ($groups as $group_id => $title) {
+            $member_ids = array_keys(array_filter($assignments, static fn(int $g): bool => $g === $group_id));
+            $waiting_ids = array_keys(array_filter($waitlist, static fn(int $g): bool => $g === $group_id));
+            $capacity = $capacities[$group_id] ?? 0;
+
+            $names = [];
+            foreach ($this->sortUsersByName($member_ids) as $user_id) {
+                $name = $this->getUserName($user_id);
+                if (!in_array($user_id, $course_members, true)) {
+                    $name .= " <em>(" . $this->txt("no_longer_member") . ")</em>";
+                }
+                $names[] = $name;
+            }
+            $waiting_names = [];
+            foreach ($waiting_ids as $position => $user_id) {
+                $waiting_names[] = ($position + 1) . ". " . $this->getUserName($user_id);
+            }
+
+            $content = [
+                $this->txt("places") => sprintf($this->txt("places_taken"), count($member_ids), $capacity),
+                $this->txt("members") => $names !== []
+                    ? $f->listing()->unordered($names)
+                    : "<em>" . $this->txt("group_empty") . "</em>",
+            ];
+            if ($waiting_names !== []) {
+                $content[$this->txt("waitlist")] = $f->listing()->unordered($waiting_names);
+            }
+
+            $panels[] = $f->panel()->sub(
+                $this->esc($title) . " (" . count($member_ids) . "/" . $capacity . ")",
+                $f->listing()->descriptive($content)
+            );
+        }
+        return $panels === [] ? [] : [$f->panel()->standard($this->txt("groups"), $panels)];
+    }
+
+    /**
+     * Method c: the number of places can be changed per group.
+     *
+     * @param array<int, string> $groups
+     * @param array<int, int>    $capacities
+     */
+    private function initCapacityForm(ilGrmManagement $mgmt, array $groups, array $capacities): ilPropertyFormGUI
+    {
+        $form = new ilPropertyFormGUI();
+        $form->setTitle($this->txt("capacities"));
+        $form->setDescription($this->txt("capacities_info"));
+        $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
+        $form->setFormAction($this->ctrl->getFormAction($this, "saveCapacities"));
+        $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
+
+        foreach ($groups as $group_id => $title) {
+            $input = new ilNumberInputGUI($this->esc($title), "cap_" . $group_id);
+            $input->setRequired(true);
+            $input->setDecimals(0);
+            $input->setMinValue(0);
+            $input->setMaxValue(ilGrmManagement::MAX_GROUP_SIZE);
+            $input->setSize(4);
+            $input->setValue((string) ($capacities[$group_id] ?? 0));
+            $form->addItem($input);
+        }
+        $form->addCommandButton("saveCapacities", $this->txt("save_capacities"));
+        return $form;
+    }
+
+    private function saveCapacities(): void
+    {
+        $mgmt = $this->requireManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_C || !$mgmt->isDrawn()) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
+
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        $form = $this->initCapacityForm($mgmt, $groups, $this->grm_repo->getGroupCapacities($mgmt->getId()));
+        if (!$form->checkInput()) {
+            $this->tpl->setOnScreenMessage("failure", $this->lng->txt("form_input_not_valid"), true);
+            $this->redirectTo("showManagement", $mgmt);
+        }
+
+        $capacities = [];
+        foreach (array_keys($groups) as $group_id) {
+            $capacities[$group_id] = max(0, min(ilGrmManagement::MAX_GROUP_SIZE, (int) $form->getInput("cap_" . $group_id)));
+        }
+        $moved = $this->grm_enrollment->setCapacities($mgmt->getId(), $capacities);
+
+        $message = $this->txt("capacities_saved");
+        if ($moved !== []) {
+            $message .= " " . sprintf($this->txt("moved_up_from_waitlist"), count($moved));
+        }
+        $this->tpl->setOnScreenMessage("success", $message, true);
+        $this->redirectTo("showManagement", $mgmt);
     }
 
     /**
@@ -443,9 +594,13 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             if ($mgmt->isPublished()) {
                 $groups = $this->grm_repo->getGroups($mgmt->getId());
                 $my_group_id = $this->grm_repo->getAssignments($mgmt->getId())[$this->user->getId()] ?? null;
-                $value = ($my_group_id !== null && isset($groups[$my_group_id]))
-                    ? $this->esc($groups[$my_group_id])
-                    : $this->txt("you_are_not_assigned");
+                if ($my_group_id !== null && isset($groups[$my_group_id])) {
+                    $value = $this->esc($groups[$my_group_id]);
+                } elseif ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
+                    $value = $this->getWaitlistText($mgmt, $groups) ?? $this->txt("not_enrolled_yet");
+                } else {
+                    $value = $this->txt("you_are_not_assigned");
+                }
             } else {
                 $value = $this->txt("not_published_yet");
             }
@@ -489,6 +644,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->tpl->setContent($this->ui_renderer->render(
                 $f->messageBox()->info($this->txt("assignment_not_visible_yet"))
             ));
+            return;
+        }
+
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
+            $this->showStudentEnrollment($mgmt);
             return;
         }
 
@@ -545,6 +705,196 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             ? $plugin->getRelativeDirectory()
             : $plugin->getDirectory();
         $this->tpl->addCss(rtrim($dir, "/") . "/templates/css/xgrm.css");
+    }
+
+    /**
+     * Method c (student view): own group on top, then all groups with free
+     * places and the buttons to enroll or to join the waitlist.
+     */
+    private function showStudentEnrollment(ilGrmManagement $mgmt): void
+    {
+        $f = $this->ui_factory;
+        $user_id = $this->user->getId();
+
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        $assignments = $this->grm_repo->getAssignments($mgmt->getId());
+        $capacities = $this->grm_repo->getGroupCapacities($mgmt->getId());
+        $waitlist = $this->grm_repo->getWaitlist($mgmt->getId());
+
+        $my_group_id = $assignments[$user_id] ?? null;
+        if ($my_group_id !== null && !isset($groups[$my_group_id])) {
+            $my_group_id = null;
+        }
+        $is_waiting = isset($waitlist[$user_id]);
+        $can_enroll = $my_group_id === null && !$is_waiting;
+
+        $components = [];
+        $modals = [];
+
+        if ($my_group_id !== null) {
+            $components[] = $f->messageBox()->success(
+                sprintf($this->txt("you_are_in_group"), $this->esc($groups[$my_group_id]))
+            );
+            $components = array_merge($components, $this->buildGroupPanels(
+                [$my_group_id => $groups[$my_group_id]],
+                $assignments,
+                null,
+                null,
+                $this->txt("your_group")
+            ));
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_unenroll"),
+                "unenrollGroup",
+                $this->txt("unenroll")
+            );
+            $this->toolbar->addComponent(
+                $f->button()->standard($this->txt("unenroll"), "")->withOnClick($modal->getShowSignal())
+            );
+        } elseif ($is_waiting) {
+            $components[] = $f->messageBox()->info((string) $this->getWaitlistText($mgmt, $groups));
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_leave_waitlist"),
+                "unenrollGroup",
+                $this->txt("leave_waitlist")
+            );
+            $this->toolbar->addComponent(
+                $f->button()->standard($this->txt("leave_waitlist"), "")->withOnClick($modal->getShowSignal())
+            );
+        } else {
+            $components[] = $f->messageBox()->info($this->txt("choose_group"));
+        }
+
+        $panels = [];
+        foreach ($groups as $group_id => $title) {
+            if ($group_id === $my_group_id) {
+                continue;
+            }
+            $member_ids = array_keys(array_filter($assignments, static fn(int $g): bool => $g === $group_id));
+            $waiting = count(array_filter($waitlist, static fn(int $g): bool => $g === $group_id));
+            $capacity = $capacities[$group_id] ?? 0;
+            $free = max(0, $capacity - count($member_ids));
+
+            $properties = [
+                $this->txt("places") => $free > 0
+                    ? sprintf($this->txt("places_free"), $free, $capacity)
+                    : $this->txt("group_full"),
+            ];
+            if ($mgmt->hasWaitlist() && $waiting > 0) {
+                $properties[$this->txt("waitlist")] = sprintf($this->txt("waitlist_count"), $waiting);
+            }
+            if ($mgmt->isShowAllGroups()) {
+                $properties[$this->txt("members")] = $member_ids !== []
+                    ? $f->listing()->unordered($this->getSortedNames($member_ids))
+                    : "<em>" . $this->txt("group_empty") . "</em>";
+            }
+            $content = [$f->listing()->descriptive($properties)];
+
+            if ($can_enroll && ($free > 0 || $mgmt->hasWaitlist())) {
+                $this->ctrl->setParameter($this, self::PARAM_GROUP_ID, $group_id);
+                $url = $this->linkTo("enrollGroup", $mgmt);
+                $this->ctrl->clearParameterByClass(self::class, self::PARAM_GROUP_ID);
+                $content[] = $free > 0
+                    ? $f->button()->primary($this->txt("enroll"), $url)
+                    : $f->button()->standard($this->txt("join_waitlist"), $url);
+            }
+
+            $panels[] = $f->panel()->sub($this->esc($title), $content);
+        }
+        if ($panels !== []) {
+            $components[] = $f->panel()->standard(
+                $my_group_id !== null ? $this->txt("other_groups") : $this->txt("groups"),
+                $panels
+            );
+        }
+
+        $this->tpl->setContent($this->ui_renderer->render(array_merge($components, $modals)));
+    }
+
+    /**
+     * "On the waitlist for group X (position n)" or null if not waiting.
+     *
+     * @param array<int, string> $groups
+     */
+    private function getWaitlistText(ilGrmManagement $mgmt, array $groups): ?string
+    {
+        $user_id = $this->user->getId();
+        $waitlist = $this->grm_repo->getWaitlist($mgmt->getId());
+        if (!isset($waitlist[$user_id])) {
+            return null;
+        }
+        $group_id = $waitlist[$user_id];
+        $position = 1;
+        foreach ($waitlist as $waiting_user => $waiting_group) {
+            if ($waiting_user === $user_id) {
+                break;
+            }
+            if ($waiting_group === $group_id) {
+                $position++;
+            }
+        }
+        return sprintf($this->txt("on_waitlist_for"), $this->esc($groups[$group_id] ?? "?"), $position);
+    }
+
+    private function enrollGroup(): void
+    {
+        $mgmt = $this->requireEnrollmentOpen();
+
+        $group_id = $this->grm_query->has(self::PARAM_GROUP_ID)
+            ? $this->grm_query->retrieve(self::PARAM_GROUP_ID, $this->grm_refinery->kindlyTo()->int())
+            : 0;
+        $user_id = $this->user->getId();
+
+        if (!in_array($user_id, $this->getCourseMembers(), true)) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("enroll_not_member"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+
+        $result = $this->grm_enrollment->enroll($mgmt->getId(), $group_id, $user_id, $mgmt->hasWaitlist());
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        switch ($result) {
+            case ilGrmEnrollment::RESULT_ENROLLED:
+                $this->tpl->setOnScreenMessage(
+                    "success",
+                    sprintf($this->txt("enroll_success"), $this->esc($groups[$group_id] ?? "")),
+                    true
+                );
+                break;
+            case ilGrmEnrollment::RESULT_WAITLISTED:
+                $this->tpl->setOnScreenMessage("info", (string) $this->getWaitlistText($mgmt, $groups), true);
+                break;
+            case ilGrmEnrollment::RESULT_FULL:
+                $this->tpl->setOnScreenMessage("failure", $this->txt("enroll_full"), true);
+                break;
+            case ilGrmEnrollment::RESULT_ALREADY:
+                $this->tpl->setOnScreenMessage("failure", $this->txt("enroll_already"), true);
+                break;
+            default:
+                $this->tpl->setOnScreenMessage("failure", $this->txt("management_not_found"), true);
+        }
+        $this->redirectTo("showStudentManagement", $mgmt);
+    }
+
+    private function unenrollGroup(): void
+    {
+        $mgmt = $this->requireEnrollmentOpen();
+        $this->grm_enrollment->unenroll($mgmt->getId(), $this->user->getId());
+        $this->tpl->setOnScreenMessage("success", $this->txt("unenroll_done"), true);
+        $this->redirectTo("showStudentManagement", $mgmt);
+    }
+
+    /**
+     * Method c: the management must be active and published ("Los").
+     */
+    private function requireEnrollmentOpen(): ilGrmManagement
+    {
+        $mgmt = $this->requireManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_C || !$mgmt->isActive() || !$mgmt->isPublished()) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("enroll_closed"), true);
+            $this->ctrl->redirect($this, "showStudentView");
+        }
+        return $mgmt;
     }
 
     private function isLecturer(): bool
@@ -614,9 +964,12 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 "topics" => implode("\n", $mgmt->getTopics()),
                 "group_size" => (string) $mgmt->getGroupSize(),
                 "remainder_mode" => $mgmt->getRemainderMode(),
+                "c_num_groups" => (string) $mgmt->getNumGroups(),
+                "c_places" => (string) $mgmt->getPlacesPerGroup(),
+                "c_waitlist" => $mgmt->hasWaitlist(),
                 "show_all" => $mgmt->isShowAllGroups(),
             ]);
-            if ($mgmt->isDrawn() && !$mgmt->isPublished()) {
+            if ($mgmt->isDrawn() && !$this->isStructureLocked($mgmt)) {
                 $this->tpl->setOnScreenMessage("info", $this->txt("edit_resets_draw_info"));
             }
         }
@@ -687,7 +1040,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 if (!ilGrmMethods::isImplemented($key)) {
                     $option->setDisabled(true);
                 }
-                foreach ($this->buildMethodInputs($key) as $input) {
+                foreach (array_merge($this->buildMethodInputs($key), $this->buildMethodExtraInputs($key)) as $input) {
                     $option->addSubItem($input);
                 }
                 $method->addOption($option);
@@ -699,15 +1052,20 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $method->setValue($this->txt("method_" . $mgmt->getMethod()));
             $form->addItem($method);
 
-            if ($mgmt->isPublished()) {
+            if ($this->isStructureLocked($mgmt)) {
                 $mode = new ilNonEditableValueGUI($this->txt("assign_mode"), "", true);
                 $mode->setValue($this->getModeSummary($mgmt));
-                $mode->setInfo($this->txt("settings_locked_published"));
+                $mode->setInfo($mgmt->getMethod() === ilGrmMethods::METHOD_C
+                    ? $this->txt("settings_locked_c")
+                    : $this->txt("settings_locked_published"));
                 $form->addItem($mode);
             } else {
                 foreach ($this->buildMethodInputs($mgmt->getMethod()) as $input) {
                     $form->addItem($input);
                 }
+            }
+            foreach ($this->buildMethodExtraInputs($mgmt->getMethod()) as $input) {
+                $form->addItem($input);
             }
             $form->addItem($this->buildShowAllInput());
         }
@@ -735,9 +1093,64 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 return [$this->buildAssignModeInput()];
             case ilGrmMethods::METHOD_B:
                 return $this->buildGroupSizeInputs();
+            case ilGrmMethods::METHOD_C:
+                return $this->buildEnrollmentInputs();
             default:
                 return [];
         }
+    }
+
+    /**
+     * Method specific settings that can be changed at any time.
+     *
+     * @return ilFormPropertyGUI[]
+     */
+    private function buildMethodExtraInputs(string $method): array
+    {
+        if ($method !== ilGrmMethods::METHOD_C) {
+            return [];
+        }
+        $waitlist = new ilCheckboxInputGUI($this->txt("waitlist_setting"), "c_waitlist");
+        $waitlist->setInfo($this->txt("waitlist_setting_info"));
+        $waitlist->setChecked(true);
+        return [$waitlist];
+    }
+
+    /**
+     * Method c: number of groups and places per group.
+     *
+     * @return ilFormPropertyGUI[]
+     */
+    private function buildEnrollmentInputs(): array
+    {
+        $num = new ilNumberInputGUI($this->txt("num_groups"), "c_num_groups");
+        $num->setRequired(true);
+        $num->setDecimals(0);
+        $num->setMinValue(1);
+        $num->setMaxValue(ilGrmManagement::MAX_GROUPS);
+        $num->setSize(4);
+        $num->setValue("4");
+
+        $places = new ilNumberInputGUI($this->txt("places_per_group"), "c_places");
+        $places->setRequired(true);
+        $places->setDecimals(0);
+        $places->setMinValue(1);
+        $places->setMaxValue(ilGrmManagement::MAX_GROUP_SIZE);
+        $places->setSize(4);
+        $places->setValue("3");
+        $places->setInfo($this->txt("places_per_group_info"));
+
+        return [$num, $places];
+    }
+
+    /**
+     * Group structure can no longer be changed: after "Los", and for method c
+     * as soon as the groups exist (they may contain enrollments).
+     */
+    private function isStructureLocked(ilGrmManagement $mgmt): bool
+    {
+        return $mgmt->isPublished()
+            || ($mgmt->getMethod() === ilGrmMethods::METHOD_C && $mgmt->isDrawn());
     }
 
     /**
@@ -758,7 +1171,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
         $remainder = new ilRadioGroupInputGUI($this->txt("remainder_mode"), "remainder_mode");
         $remainder->setRequired(true);
-        $remainder->setValue(ilGrmManagement::REMAINDER_NEAREST);
+        $remainder->setValue(ilGrmManagement::REMAINDER_SMALLER);
         foreach (ilGrmManagement::REMAINDER_MODES as $remainder_mode) {
             $remainder->addOption(new ilRadioOption(
                 $this->txt("remainder_" . $remainder_mode),
@@ -841,9 +1254,28 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     {
         $mgmt->setTitle(trim((string) $form->getInput("title")));
         $mgmt->setShowAllGroups((bool) $form->getInput("show_all"));
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
+            $mgmt->setWaitlist((bool) $form->getInput("c_waitlist"));
+        }
 
-        if ($mgmt->isPublished()) {
-            return true; // structure is locked
+        if ($this->isStructureLocked($mgmt)) {
+            return true;
+        }
+
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
+            $num = (int) $form->getInput("c_num_groups");
+            if ($num < 1 || $num > ilGrmManagement::MAX_GROUPS) {
+                $this->setFormAlert($form, "c_num_groups", sprintf($this->txt("num_groups_invalid"), ilGrmManagement::MAX_GROUPS));
+                return false;
+            }
+            $places = (int) $form->getInput("c_places");
+            if ($places < 1 || $places > ilGrmManagement::MAX_GROUP_SIZE) {
+                $this->setFormAlert($form, "c_places", sprintf($this->txt("places_invalid"), ilGrmManagement::MAX_GROUP_SIZE));
+                return false;
+            }
+            $mgmt->setNumGroups($num);
+            $mgmt->setPlacesPerGroup($places);
+            return true;
         }
 
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_B) {
@@ -946,6 +1378,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     {
         $mgmt = $this->requireManagement();
         $this->requireNotPublished($mgmt);
+        if (!ilGrmMethods::usesRandomDraw($mgmt->getMethod())) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
 
         if ($this->performDraw($mgmt)) {
             $this->tpl->setOnScreenMessage("success", $this->txt("draw_done"), true);
@@ -966,8 +1401,12 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->redirectTo("showManagement", $mgmt);
         }
 
-        if (!$mgmt->isDrawn() && !$this->performDraw($mgmt)) {
-            $this->redirectTo("showManagement", $mgmt);
+        $is_c = $mgmt->getMethod() === ilGrmMethods::METHOD_C;
+        if (!$mgmt->isDrawn()) {
+            $prepared = $is_c ? $this->createEnrollmentGroups($mgmt) : $this->performDraw($mgmt);
+            if (!$prepared) {
+                $this->redirectTo("showManagement", $mgmt);
+            }
         }
 
         $mgmt->setStatus(ilGrmManagement::STATUS_PUBLISHED);
@@ -977,7 +1416,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->grm_repo->activate($mgmt);
         }
 
-        $this->tpl->setOnScreenMessage("success", $this->txt("go_done"), true);
+        $this->tpl->setOnScreenMessage("success", $is_c ? $this->txt("go_done_c") : $this->txt("go_done"), true);
         $this->redirectTo("showManagement", $mgmt);
     }
 
@@ -1000,7 +1439,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private function assignLatecomers(): void
     {
         $mgmt = $this->requireManagement();
-        if (!$mgmt->isDrawn()) {
+        if (!$mgmt->isDrawn() || !ilGrmMethods::usesRandomDraw($mgmt->getMethod())) {
             $this->redirectTo("showManagement", $mgmt);
         }
 
@@ -1030,6 +1469,26 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     /**
      * Random assignment of all course members (methods a and b).
      */
+    /**
+     * Method c: creates the (empty) groups with the configured number of places.
+     */
+    private function createEnrollmentGroups(ilGrmManagement $mgmt): bool
+    {
+        if ($this->getCourseRefId() === 0) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("no_parent_course"), true);
+            return false;
+        }
+        $titles = $mgmt->buildGroupTitles(fn(int $n): string => sprintf($this->txt("group_title_n"), $n));
+        if ($titles === []) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("no_groups_configured"), true);
+            return false;
+        }
+        $this->grm_repo->createGroups($mgmt->getId(), $titles, $mgmt->getPlacesPerGroup());
+        $mgmt->setStatus(ilGrmManagement::STATUS_DRAWN);
+        $this->grm_repo->saveManagement($mgmt);
+        return true;
+    }
+
     private function performDraw(ilGrmManagement $mgmt): bool
     {
         if ($this->getCourseRefId() === 0) {
@@ -1237,13 +1696,19 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         return [
             $this->txt("method") => $this->txt("method_" . $mgmt->getMethod()),
             $this->txt("assign_mode") => $this->getModeSummary($mgmt),
-            $this->txt("status") => $this->txt("status_" . $mgmt->getStatus()),
+            $this->txt("status") => $mgmt->getMethod() === ilGrmMethods::METHOD_C
+                ? $this->txt("status_c_" . $mgmt->getStatus())
+                : $this->txt("status_" . $mgmt->getStatus()),
             $this->txt("active") => $mgmt->isActive() ? $this->lng->txt("yes") : $this->lng->txt("no"),
         ];
     }
 
     private function getModeSummary(ilGrmManagement $mgmt): string
     {
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
+            return sprintf($this->txt("summary_c"), $mgmt->getNumGroups(), $mgmt->getPlacesPerGroup())
+                . " – " . ($mgmt->hasWaitlist() ? $this->txt("waitlist_on") : $this->txt("waitlist_off"));
+        }
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_B) {
             return sprintf($this->txt("summary_group_size"), $mgmt->getGroupSize())
                 . " – " . $this->txt("remainder_" . $mgmt->getRemainderMode() . "_short");
