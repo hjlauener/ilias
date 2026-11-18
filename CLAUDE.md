@@ -37,6 +37,13 @@ diff <(cut -d'#' -f1 lang/ilias_de.lang) <(cut -d'#' -f1 lang/ilias_en.lang)
 - Nur UI-Aufrufe verwenden, die in ILIAS 9, 10 und 11 gleich sind
   (z.B. kein `$f->legacy(...)`, dessen Signatur sich in ILIAS 11 geändert hat).
 
+- Methode D (Prioritäten): Wünsche nur über `ilGrmPriorityRegistration`
+  (gesperrt, prüft offene Anmeldung und Anmeldeschluss), Zuteilung mit
+  `ilGrmPriorityAssigner` (optimal; vor Änderungen gegen die Brute-Force-Prüfung testen).
+- Neue Objekte: Standardrechte der Kursrollen über `ilGrmPermissions` (siehe README).
+- Das Plugin leitet Aufrufe über `ilRepositoryGUI` auf `ilObjPluginDispatchGUI`
+  um (`executeCommand()`), sonst gibt ILIAS 11 die Seite doppelt aus und bricht ab.
+
 ## Datenbank
 
 - Neue DB-Schritte in `sql/dbupdate.php` anhängen und die Version in
@@ -48,3 +55,6 @@ diff <(cut -d'#' -f1 lang/ilias_de.lang) <(cut -d'#' -f1 lang/ilias_en.lang)
 - Der Auftraggeber testet mit `grm` (holt den Branch und lädt das Plugin im
   lokalen Docker-ILIAS neu), siehe `dev/README.md`.
 - Vor jedem Push: `php -l` auf alle PHP-Dateien und den Sprachdatei-Check oben.
+- In Cloud-Sitzungen kann eine Test-ILIAS 11 in Docker gestartet und im Browser
+  (Playwright) getestet werden, siehe `dev/test-ilias/README.md`. Änderungen an
+  der Oberfläche dort durchklicken, bevor sie gepusht werden.

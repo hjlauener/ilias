@@ -487,8 +487,31 @@ EOF_LIST
     if [ -n "$port" ]; then
         url="http://localhost:$port"
         [ -n "$ILIAS_URL" ] && url="$ILIAS_URL"
+
+        # Das Image führt beim Start zuerst das ILIAS-Setup aus; erst danach
+        # antwortet der Webserver. Bis zu 3 Minuten warten.
+        if command -v curl >/dev/null 2>&1; then
+            step "Warte auf den Webserver (beim Start läuft zuerst das ILIAS-Setup) …"
+            local code=""
+            for i in $(seq 1 90); do
+                code="$(curl -s -o /dev/null -w '%{http_code}' --noproxy '*' --max-time 5 "http://localhost:$port/" 2>/dev/null || true)"
+                case "$code" in 2*|3*) break ;; esac
+                if [ "$(docker inspect -f '{{.State.Status}}' "$web" 2>/dev/null)" != "running" ]; then
+                    warn "$web wurde beendet. Letzte Meldungen:"
+                    docker logs --tail 20 "$web" >&2 || true
+                    die "ILIAS konnte nicht gestartet werden."
+                fi
+                sleep 2
+            done
+            case "$code" in
+                2*|3*) ;;
+                *) die "ILIAS antwortet nach 3 Minuten noch nicht. Details: docker logs $web" ;;
+            esac
+        fi
+
         ok "ILIAS läuft: $url"
-        if command -v open >/dev/null 2>&1; then open "$url"; fi
+        # GRM_NO_BROWSER=1 unterdrückt das Öffnen (z.B. für automatische Tests)
+        if [ "${GRM_NO_BROWSER:-0}" != "1" ] && [ "$(uname -s)" = "Darwin" ]; then open "$url"; fi
     else
         ok "ILIAS läuft (Container $web)."
     fi

@@ -141,6 +141,72 @@ class ilGrmEnrollment
     }
 
     /**
+     * Replaces all assignments of a management, e.g. with the result of the
+     * assignment algorithm (method d). The groups stay untouched; groups that
+     * do not belong to the management are ignored.
+     *
+     * @param array<int, int> $assignments user id => group id
+     */
+    public function replaceAssignments(int $mgmt_id, array $assignments): void
+    {
+        $this->atomic(function (ilDBInterface $db) use ($mgmt_id, $assignments): void {
+            $group_ids = array_keys($this->fetchCapacities($db, $mgmt_id));
+
+            $db->manipulate(
+                "DELETE FROM " . ilGrmRepository::TABLE_ASSIGN .
+                " WHERE mgmt_id = " . $db->quote($mgmt_id, "integer")
+            );
+            foreach ($assignments as $user_id => $group_id) {
+                if (in_array((int) $group_id, $group_ids, true)) {
+                    $this->insertMember($db, $mgmt_id, (int) $group_id, (int) $user_id);
+                }
+            }
+        });
+    }
+
+    /**
+     * Lecturer: distributes persons without a group randomly to the free
+     * places (the group with the most free places first). Persons for whom
+     * no place is left stay without a group.
+     *
+     * @param int[] $user_ids
+     * @return array<int, int> user id => group id of the persons that got a place
+     */
+    public function fillFreePlaces(int $mgmt_id, array $user_ids): array
+    {
+        $assigned = [];
+        $this->atomic(function (ilDBInterface $db) use ($mgmt_id, $user_ids, &$assigned): void {
+            $assigned = [];
+            $free = [];
+            foreach ($this->fetchCapacities($db, $mgmt_id) as $group_id => $capacity) {
+                $free[$group_id] = $capacity - $this->countMembers($db, $mgmt_id, $group_id);
+            }
+
+            $user_ids = array_values(array_unique(array_map("intval", $user_ids)));
+            for ($i = count($user_ids) - 1; $i > 0; $i--) {
+                $j = random_int(0, $i);
+                [$user_ids[$i], $user_ids[$j]] = [$user_ids[$j], $user_ids[$i]];
+            }
+
+            foreach ($user_ids as $user_id) {
+                $most_free = $free === [] ? 0 : max($free);
+                if ($most_free <= 0) {
+                    break;
+                }
+                if ($this->isEnrolledOrWaiting($db, $mgmt_id, $user_id)) {
+                    continue;
+                }
+                $candidates = array_keys($free, $most_free, true);
+                $group_id = $candidates[random_int(0, count($candidates) - 1)];
+                $this->insertMember($db, $mgmt_id, $group_id, $user_id);
+                $free[$group_id]--;
+                $assigned[$user_id] = $group_id;
+            }
+        });
+        return $assigned;
+    }
+
+    /**
      * Changes the number of places per group; free places are filled from
      * the waitlist right away.
      *
@@ -202,6 +268,23 @@ class ilGrmEnrollment
             $moved[] = $user_id;
         }
         return $moved;
+    }
+
+    /**
+     * @return array<int, int> group id => number of places
+     */
+    private function fetchCapacities(ilDBInterface $db, int $mgmt_id): array
+    {
+        $set = $db->query(
+            "SELECT id, capacity FROM " . ilGrmRepository::TABLE_GROUP .
+            " WHERE mgmt_id = " . $db->quote($mgmt_id, "integer") .
+            " ORDER BY position, id"
+        );
+        $capacities = [];
+        while ($rec = $db->fetchAssoc($set)) {
+            $capacities[(int) $rec["id"]] = (int) $rec["capacity"];
+        }
+        return $capacities;
     }
 
     private function fetchCapacity(ilDBInterface $db, int $mgmt_id, int $group_id): ?int

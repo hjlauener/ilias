@@ -11,9 +11,9 @@ use ILIAS\UI\Component\Modal\Interruptive;
  * GUI class of the GroupManagement repository object.
  *
  * Lecturers (write permission) create one or more "Gruppenmanagements"
- * inside the object, each using one of the methods a–j. Only one of them
- * can be active. Students (read permission) see the group assignment of the
- * active management as soon as the lecturer has pressed "Go".
+ * inside the object, each using one of the methods a–j. Several of them can
+ * be active. Students (read permission) see an overview of the active
+ * managements and their group as soon as the lecturer has pressed "Los".
  *
  * @ilCtrl_isCalledBy ilObjGroupManagementGUI: ilRepositoryGUI, ilAdministrationGUI, ilObjPluginDispatchGUI
  * @ilCtrl_Calls ilObjGroupManagementGUI: ilPermissionGUI, ilInfoScreenGUI, ilObjectCopyGUI, ilCommonActionDispatcherGUI
@@ -47,6 +47,12 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "assignLatecomers",
         "saveCapacities",
         "moveMember",
+        "openRegistration",
+        "closeRegistration",
+        "recalculateAssignment",
+        "reopenRegistration",
+        "fillFreePlaces",
+        "applyDefaultPermissions",
     ];
 
     /** Commands that need read permission */
@@ -56,11 +62,15 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "showStudentManagement",
         "enrollGroup",
         "unenrollGroup",
+        "saveWishes",
+        "withdrawWishes",
     ];
 
     private ilGrmRepository $grm_repo;
     private ilGrmEnrollment $grm_enrollment;
+    private ilGrmPriorityRegistration $grm_registration;
     private ilGrmCourseContext $grm_course;
+    private ilGrmPermissions $grm_permissions;
     private Refinery $grm_refinery;
     private ArrayBasedRequestWrapper $grm_query;
     private ArrayBasedRequestWrapper $grm_post;
@@ -71,7 +81,13 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
         $this->grm_repo = new ilGrmRepository($DIC->database());
         $this->grm_enrollment = new ilGrmEnrollment($DIC->database());
+        $this->grm_registration = new ilGrmPriorityRegistration($DIC->database());
         $this->grm_course = new ilGrmCourseContext($DIC->repositoryTree());
+        $this->grm_permissions = new ilGrmPermissions(
+            $DIC->repositoryTree(),
+            $DIC->rbac()->admin(),
+            $DIC->rbac()->review()
+        );
         $this->grm_refinery = $DIC->refinery();
         $this->grm_query = $DIC->http()->wrapper()->query();
         $this->grm_post = $DIC->http()->wrapper()->post();
@@ -80,6 +96,31 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     final public function getType(): string
     {
         return ilGroupManagementPlugin::ID;
+    }
+
+    public function executeCommand(): void
+    {
+        // Opened via ilRepositoryGUI (e.g. ilias.php?baseClass=ilRepositoryGUI&ref_id=…):
+        // ilRepositoryGUI prints the page again after this GUI has printed it,
+        // which ILIAS 11 aborts with "Response has already been sent". Continue
+        // via ilObjPluginDispatchGUI, like the goto links of ILIAS do.
+        if (!$this->getCreationMode()
+            && $this->object !== null
+            && strtolower($this->slot_request->getBaseClass()) === "ilrepositorygui") {
+            $this->ctrl->setParameterByClass(self::class, "ref_id", $this->object->getRefId());
+            $this->ctrl->redirectByClass(["ilobjplugindispatchgui", self::class], (string) $this->ctrl->getCmd());
+        }
+        parent::executeCommand();
+    }
+
+    /**
+     * New object: course roles without permissions get the defaults, so that
+     * course members can see the object (see ilGrmPermissions).
+     */
+    protected function afterSave(ilObject $new_object): void
+    {
+        $this->grm_permissions->applyDefaults($new_object->getRefId());
+        parent::afterSave($new_object);
     }
 
     public function getAfterCreationCmd(): string
@@ -242,9 +283,13 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->ctrl->getLinkTarget($this, "showStudentView")
         ));
 
+        $warning = $this->buildPermissionWarning();
         $managements = $this->grm_repo->getManagementsForObject($this->object->getId());
         if ($managements === []) {
             $this->tpl->setOnScreenMessage("info", $this->txt("no_managements"));
+            if ($warning !== []) {
+                $this->tpl->setContent($this->ui_renderer->render($warning));
+            }
             return;
         }
 
@@ -288,7 +333,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             [$this->ui_factory->item()->group("", $items)]
         );
 
-        $this->tpl->setContent($this->ui_renderer->render(array_merge([$panel], $modals)));
+        $this->tpl->setContent($this->ui_renderer->render(array_merge($warning, [$panel], $modals)));
     }
 
     /**
@@ -301,6 +346,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $this->showContextMessages();
 
         $is_c = $mgmt->getMethod() === ilGrmMethods::METHOD_C;
+        $is_d = $mgmt->getMethod() === ilGrmMethods::METHOD_D;
         $uses_draw = ilGrmMethods::usesRandomDraw($mgmt->getMethod());
 
         $f = $this->ui_factory;
@@ -329,21 +375,25 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 $this->toolbar->addComponent($f->button()->standard($draw_label, "")->withOnClick($modal->getShowSignal()));
             }
 
-            if ($is_c) {
-                $go_label = $this->txt("go_c");
-                $go_message = $this->txt("confirm_go_c");
+            if ($is_d) {
+                $modals = array_merge($modals, $this->addRegistrationButtons($mgmt));
             } else {
-                $go_label = $this->txt("go");
-                $go_message = $this->txt("confirm_go");
-                if (!$mgmt->isDrawn()) {
-                    $go_message .= " " . $this->txt("confirm_go_draw_first");
+                if ($is_c) {
+                    $go_label = $this->txt("go_c");
+                    $go_message = $this->txt("confirm_go_c");
+                } else {
+                    $go_label = $this->txt("go");
+                    $go_message = $this->txt("confirm_go");
+                    if (!$mgmt->isDrawn()) {
+                        $go_message .= " " . $this->txt("confirm_go_draw_first");
+                    }
                 }
+                if (!$mgmt->isActive()) {
+                    $go_message .= " " . $this->txt("confirm_go_activate");
+                }
+                $modals[] = $modal = $this->buildConfirmModal($mgmt, $go_message, "goManagement", $go_label);
+                $this->toolbar->addComponent($f->button()->primary($go_label, "")->withOnClick($modal->getShowSignal()));
             }
-            if (!$mgmt->isActive()) {
-                $go_message .= " " . $this->txt("confirm_go_activate");
-            }
-            $modals[] = $modal = $this->buildConfirmModal($mgmt, $go_message, "goManagement", $go_label);
-            $this->toolbar->addComponent($f->button()->primary($go_label, "")->withOnClick($modal->getShowSignal()));
         } else {
             $modals[] = $modal = $this->buildConfirmModal(
                 $mgmt,
@@ -370,6 +420,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $assignments = $this->grm_repo->getAssignments($mgmt->getId());
         $members = $this->getCourseMembers();
         $unassigned = array_values(array_diff($members, array_keys($assignments)));
+
+        if ($is_d) {
+            $this->showPriorityManagement($mgmt, $groups, $assignments, $members, $modals);
+            return;
+        }
 
         if ($uses_draw && $mgmt->isDrawn() && $unassigned !== []) {
             $this->tpl->setOnScreenMessage(
@@ -457,6 +512,381 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
+     * Method d (not published): toolbar buttons of the registration phases.
+     *
+     * @return Interruptive[] modals to render with the page
+     */
+    private function addRegistrationButtons(ilGrmManagement $mgmt): array
+    {
+        $f = $this->ui_factory;
+        $modals = [];
+        $activate_note = $mgmt->isActive() ? "" : " " . $this->txt("confirm_go_activate");
+
+        if (!$mgmt->hasGroups()) {
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_open_registration") . $activate_note,
+                "openRegistration",
+                $this->txt("open_registration")
+            );
+            $this->toolbar->addComponent(
+                $f->button()->primary($this->txt("open_registration"), "")->withOnClick($modal->getShowSignal())
+            );
+            return $modals;
+        }
+
+        if ($mgmt->isRegistrationOpen()) {
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_close_registration"),
+                "closeRegistration",
+                $this->txt("close_registration")
+            );
+            $this->toolbar->addComponent(
+                $f->button()->primary($this->txt("close_registration"), "")->withOnClick($modal->getShowSignal())
+            );
+            return $modals;
+        }
+
+        // correction mode (assignment calculated, not published yet)
+        $modals[] = $modal = $this->buildConfirmModal(
+            $mgmt,
+            $this->txt("confirm_recalculate"),
+            "recalculateAssignment",
+            $this->txt("recalculate")
+        );
+        $this->toolbar->addComponent(
+            $f->button()->standard($this->txt("recalculate"), "")->withOnClick($modal->getShowSignal())
+        );
+        $modals[] = $modal = $this->buildConfirmModal(
+            $mgmt,
+            $this->txt("confirm_reopen_registration"),
+            "reopenRegistration",
+            $this->txt("reopen_registration")
+        );
+        $this->toolbar->addComponent(
+            $f->button()->standard($this->txt("reopen_registration"), "")->withOnClick($modal->getShowSignal())
+        );
+        $modals[] = $modal = $this->buildConfirmModal(
+            $mgmt,
+            $this->txt("confirm_go") . $activate_note,
+            "goManagement",
+            $this->txt("go")
+        );
+        $this->toolbar->addComponent(
+            $f->button()->primary($this->txt("go"), "")->withOnClick($modal->getShowSignal())
+        );
+        return $modals;
+    }
+
+    /**
+     * Method d (lecturer view): registrations while the registration is
+     * open; result, statistics and correction tools after the assignment.
+     *
+     * @param array<int, string> $groups
+     * @param array<int, int>    $assignments user id => group id
+     * @param int[]              $members     course members
+     * @param Interruptive[]     $modals
+     */
+    private function showPriorityManagement(
+        ilGrmManagement $mgmt,
+        array $groups,
+        array $assignments,
+        array $members,
+        array $modals
+    ): void {
+        $f = $this->ui_factory;
+        $capacities = $this->grm_repo->getGroupCapacities($mgmt->getId());
+        $all_wishes = $this->grm_repo->getWishes($mgmt->getId());
+        $wishes = array_intersect_key($all_wishes, array_flip($members));
+        $without_group = array_values(array_diff($members, array_keys($assignments)));
+
+        if ($mgmt->isDrawn() && $without_group !== [] && array_sum($capacities) > count($assignments)) {
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_fill_free_places"),
+                "fillFreePlaces",
+                $this->txt("fill_free_places")
+            );
+            $this->toolbar->addComponent(
+                $f->button()->standard($this->txt("fill_free_places"), "")->withOnClick($modal->getShowSignal())
+            );
+        }
+        if ($mgmt->isPublished() && !$mgmt->isActive()) {
+            $this->tpl->setOnScreenMessage("info", $this->txt("published_but_inactive"));
+        }
+
+        $properties = $this->getManagementProperties($mgmt);
+        $properties[$this->txt("course_members")] = (string) count($members);
+        if ($mgmt->usesTopics()) {
+            $properties[$this->txt("topics")] = implode(", ", array_map([$this, "esc"], $mgmt->getTopics()));
+        }
+        if ($mgmt->getRegistrationEnd() > 0) {
+            $deadline = ilDatePresentation::formatDate(new ilDateTime($mgmt->getRegistrationEnd(), IL_CAL_UNIX));
+            if ($mgmt->isRegistrationOpen() && $mgmt->isRegistrationDeadlinePassed()) {
+                $deadline .= " (" . $this->txt("deadline_passed") . ")";
+            }
+            $properties[$this->txt("registration_end")] = $deadline;
+        }
+        if ($mgmt->hasGroups()) {
+            $properties[$this->txt("registrations")] = sprintf(
+                $this->txt("registrations_count"),
+                count($wishes),
+                count($members)
+            );
+        }
+        if ($mgmt->isDrawn()) {
+            $properties[$this->txt("places")] = sprintf(
+                $this->txt("places_taken"),
+                count($assignments),
+                array_sum($capacities)
+            );
+            $properties[$this->txt("assignment_result")] = $this->getPriorityStatistics($assignments, $wishes, $members);
+        }
+        if ($mgmt->getPublished() !== null) {
+            $properties[$this->txt("published_at")] = ilDatePresentation::formatDate(
+                new ilDateTime($mgmt->getPublished(), IL_CAL_UNIX)
+            );
+        }
+
+        $components = [
+            $f->panel()->standard($this->esc($mgmt->getTitle()), $f->listing()->descriptive($properties)),
+        ];
+        $form_html = "";
+
+        if (!$mgmt->hasGroups()) {
+            $components[] = $f->messageBox()->info($this->txt("not_open_yet_d"));
+        } elseif ($mgmt->isRegistrationOpen()) {
+            $components[] = $f->messageBox()->info(
+                $mgmt->isRegistrationDeadlinePassed()
+                    ? $this->txt("registration_deadline_reached_info")
+                    : $this->txt("registration_open_info")
+            );
+            $components = array_merge($components, $this->buildDemandPanels($groups, $capacities, $wishes));
+            $components = array_merge($components, $this->buildRegistrationPanels($groups, $wishes, $members));
+            $form_html = $this->initCapacityForm($mgmt, $groups, $capacities)->getHTML();
+        } else {
+            if (!$mgmt->isPublished()) {
+                $components[] = $f->messageBox()->info($this->txt("correction_mode_info"));
+            }
+            $components = array_merge(
+                $components,
+                $this->buildPriorityPanels($groups, $assignments, $capacities, $wishes, $members)
+            );
+            $components = array_merge(
+                $components,
+                $this->buildWithoutPlacePanels($groups, $without_group, $wishes)
+            );
+            $form_html = $this->initCapacityForm($mgmt, $groups, $capacities)->getHTML()
+                . $this->initMoveForm($mgmt, $groups, $assignments, [], $members, $wishes)->getHTML();
+        }
+
+        $this->tpl->setContent(
+            $this->ui_renderer->render($components) . $form_html . $this->ui_renderer->render($modals)
+        );
+    }
+
+    /**
+     * "1st wish: 12 · 2nd wish: 4 · not wished: 1 · without place: 2"
+     *
+     * @param array<int, int>   $assignments user id => group id
+     * @param array<int, int[]> $wishes      user id => group ids (course members only)
+     * @param int[]             $members
+     */
+    private function getPriorityStatistics(array $assignments, array $wishes, array $members): string
+    {
+        $by_priority = [];
+        $not_wished = 0;
+        foreach ($assignments as $user_id => $group_id) {
+            if (!isset($wishes[$user_id])) {
+                $not_wished++;
+                continue;
+            }
+            $priority = ilGrmPriorityAssigner::priorityOf($wishes[$user_id], $group_id);
+            if ($priority === null) {
+                $not_wished++;
+            } else {
+                $by_priority[$priority] = ($by_priority[$priority] ?? 0) + 1;
+            }
+        }
+        ksort($by_priority);
+
+        $parts = [];
+        foreach ($by_priority as $priority => $count) {
+            $parts[] = sprintf($this->txt("stat_priority"), $priority, $count);
+        }
+        if ($not_wished > 0) {
+            $parts[] = sprintf($this->txt("stat_not_wished"), $not_wished);
+        }
+        $without_place = count(array_diff($members, array_keys($assignments)));
+        if ($without_place > 0) {
+            $parts[] = sprintf($this->txt("stat_without_place"), $without_place);
+        }
+        return $parts === [] ? $this->txt("none") : implode(" · ", $parts);
+    }
+
+    /**
+     * Method d, registration open: places and demand per group.
+     *
+     * @param array<int, string> $groups
+     * @param array<int, int>    $capacities
+     * @param array<int, int[]>  $wishes user id => group ids
+     * @return Component[]
+     */
+    private function buildDemandPanels(array $groups, array $capacities, array $wishes): array
+    {
+        $f = $this->ui_factory;
+        $first = [];
+        $total = [];
+        foreach ($wishes as $user_wishes) {
+            foreach (array_values($user_wishes) as $position => $group_id) {
+                $total[$group_id] = ($total[$group_id] ?? 0) + 1;
+                if ($position === 0) {
+                    $first[$group_id] = ($first[$group_id] ?? 0) + 1;
+                }
+            }
+        }
+
+        $panels = [];
+        foreach ($groups as $group_id => $title) {
+            $panels[] = $f->panel()->sub($this->esc($title), $f->listing()->descriptive([
+                $this->txt("places") => (string) ($capacities[$group_id] ?? 0),
+                $this->txt("first_choice_of") => (string) ($first[$group_id] ?? 0),
+                $this->txt("wished_by") => (string) ($total[$group_id] ?? 0),
+            ]));
+        }
+        return $panels === [] ? [] : [$f->panel()->standard($this->txt("demand"), $panels)];
+    }
+
+    /**
+     * Method d, registration open: who has registered with which wishes.
+     *
+     * @param array<int, string> $groups
+     * @param array<int, int[]>  $wishes
+     * @param int[]              $members
+     * @return Component[]
+     */
+    private function buildRegistrationPanels(array $groups, array $wishes, array $members): array
+    {
+        $f = $this->ui_factory;
+        $components = [];
+
+        $lines = [];
+        foreach ($this->sortUsersByName(array_keys($wishes)) as $user_id) {
+            $lines[] = $this->getUserName($user_id) . ": " . $this->esc($this->formatWishes($wishes[$user_id], $groups));
+        }
+        $components[] = $f->panel()->standard(
+            $this->txt("registrations") . " (" . count($lines) . ")",
+            $lines !== []
+                ? $f->listing()->unordered($lines)
+                : $f->listing()->unordered(["<em>" . $this->txt("no_registrations_yet") . "</em>"])
+        );
+
+        $missing = array_values(array_diff($members, array_keys($wishes)));
+        if ($missing !== []) {
+            $components[] = $f->panel()->standard(
+                $this->txt("not_registered") . " (" . count($missing) . ")",
+                $f->listing()->unordered($this->getSortedNames($missing))
+            );
+        }
+        return $components;
+    }
+
+    /**
+     * Method d after the assignment: groups with members and the priority
+     * each person got.
+     *
+     * @param array<int, string> $groups
+     * @param array<int, int>    $assignments
+     * @param array<int, int>    $capacities
+     * @param array<int, int[]>  $wishes
+     * @param int[]              $course_members
+     * @return Component[]
+     */
+    private function buildPriorityPanels(
+        array $groups,
+        array $assignments,
+        array $capacities,
+        array $wishes,
+        array $course_members
+    ): array {
+        $f = $this->ui_factory;
+        $panels = [];
+        foreach ($groups as $group_id => $title) {
+            $member_ids = array_keys(array_filter($assignments, static fn(int $g): bool => $g === $group_id));
+            $capacity = $capacities[$group_id] ?? 0;
+
+            $names = [];
+            foreach ($this->sortUsersByName($member_ids) as $user_id) {
+                $priority = isset($wishes[$user_id])
+                    ? ilGrmPriorityAssigner::priorityOf($wishes[$user_id], $group_id)
+                    : null;
+                if ($priority !== null) {
+                    $label = sprintf($this->txt("priority_short"), $priority);
+                } elseif (isset($wishes[$user_id])) {
+                    $label = $this->txt("not_wished");
+                } else {
+                    $label = $this->txt("no_registration");
+                }
+                $name = $this->getUserName($user_id) . " – " . $label;
+                if (!in_array($user_id, $course_members, true)) {
+                    $name .= " <em>(" . $this->txt("no_longer_member") . ")</em>";
+                }
+                $names[] = $name;
+            }
+
+            $panels[] = $f->panel()->sub(
+                $this->esc($title) . " (" . count($member_ids) . "/" . $capacity . ")",
+                $f->listing()->descriptive([
+                    $this->txt("places") => sprintf($this->txt("places_taken"), count($member_ids), $capacity),
+                    $this->txt("members") => $names !== []
+                        ? $f->listing()->unordered($names)
+                        : "<em>" . $this->txt("group_empty") . "</em>",
+                ])
+            );
+        }
+        return $panels === [] ? [] : [$f->panel()->standard($this->txt("groups"), $panels)];
+    }
+
+    /**
+     * Method d after the assignment: persons without a place (with their wishes).
+     *
+     * @param array<int, string> $groups
+     * @param int[]              $without_group course members without a group
+     * @param array<int, int[]>  $wishes
+     * @return Component[]
+     */
+    private function buildWithoutPlacePanels(array $groups, array $without_group, array $wishes): array
+    {
+        $f = $this->ui_factory;
+        $registered = [];
+        $not_registered = [];
+        foreach ($this->sortUsersByName($without_group) as $user_id) {
+            if (isset($wishes[$user_id])) {
+                $registered[] = $this->getUserName($user_id) . " – "
+                    . sprintf($this->txt("wishes_short"), $this->esc($this->formatWishes($wishes[$user_id], $groups)));
+            } else {
+                $not_registered[] = $this->getUserName($user_id);
+            }
+        }
+
+        $components = [];
+        if ($registered !== []) {
+            $components[] = $f->panel()->standard(
+                $this->txt("without_place") . " (" . count($registered) . ")",
+                $f->listing()->unordered($registered)
+            );
+        }
+        if ($not_registered !== []) {
+            $components[] = $f->panel()->standard(
+                $this->txt("not_registered") . " (" . count($not_registered) . ")",
+                $f->listing()->unordered($not_registered)
+            );
+        }
+        return $components;
+    }
+
+    /**
      * Method c (lecturer view): groups with places, members and waitlist.
      *
      * @param array<int, string> $groups      group id => title
@@ -521,7 +951,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     {
         $form = new ilPropertyFormGUI();
         $form->setTitle($this->txt("capacities"));
-        $form->setDescription($this->txt("capacities_info"));
+        $form->setDescription($mgmt->getMethod() === ilGrmMethods::METHOD_D
+            ? $this->txt("capacities_info_d")
+            : $this->txt("capacities_info"));
         $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
         $form->setFormAction($this->ctrl->getFormAction($this, "saveCapacities"));
         $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
@@ -547,18 +979,20 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
      * @param array<int, int>    $assignments user id => group id
      * @param array<int, int>    $waitlist    user id => group id
      * @param int[]              $course_members
+     * @param array<int, int[]>  $wishes      method d: user id => wished group ids
      */
     private function initMoveForm(
         ilGrmManagement $mgmt,
         array $groups,
         array $assignments,
         array $waitlist,
-        array $course_members
+        array $course_members,
+        array $wishes = []
     ): ilPropertyFormGUI {
         $form = new ilPropertyFormGUI();
         $form->setTitle($this->txt("move_member"));
-        $form->setDescription($mgmt->getMethod() === ilGrmMethods::METHOD_C
-            ? $this->txt("move_member_info_c")
+        $form->setDescription(ilGrmMethods::hasPlaces($mgmt->getMethod())
+            ? ($mgmt->getMethod() === ilGrmMethods::METHOD_C ? $this->txt("move_member_info_c") : $this->txt("move_member_info_d"))
             : $this->txt("move_member_info"));
         $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
         $form->setFormAction($this->ctrl->getFormAction($this, "moveMember"));
@@ -577,6 +1011,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 $where = sprintf($this->txt("member_status_waiting"), $groups[$waitlist[$user_id]]);
             } else {
                 $where = $this->txt("member_status_none");
+            }
+            if (isset($wishes[$user_id])) {
+                $where .= " · " . sprintf($this->txt("wishes_short"), $this->formatWishes($wishes[$user_id], $groups));
             }
             $person_options[$user_id] = $this->getRawUserName($user_id) . " – " . $where;
         }
@@ -611,7 +1048,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $waitlist = $this->grm_repo->getWaitlist($mgmt->getId());
         $members = $this->getCourseMembers();
 
-        $form = $this->initMoveForm($mgmt, $groups, $assignments, $waitlist, $members);
+        $wishes = $mgmt->getMethod() === ilGrmMethods::METHOD_D ? $this->grm_repo->getWishes($mgmt->getId()) : [];
+        $form = $this->initMoveForm($mgmt, $groups, $assignments, $waitlist, $members, $wishes);
         $user_id = $form->checkInput() ? (int) $form->getInput("move_user") : 0;
         $target_group_id = $user_id > 0 ? (int) $form->getInput("move_group") : 0;
 
@@ -627,6 +1065,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
         $is_c = $mgmt->getMethod() === ilGrmMethods::METHOD_C;
         $result = $this->grm_enrollment->moveMember($mgmt->getId(), $user_id, $target_group_id, $is_c);
+        $has_places = ilGrmMethods::hasPlaces($mgmt->getMethod());
         if (!$result["ok"]) {
             $this->tpl->setOnScreenMessage("failure", $this->txt("move_invalid"), true);
             $this->redirectTo("showManagement", $mgmt);
@@ -641,7 +1080,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
         $this->tpl->setOnScreenMessage("success", $message, true);
 
-        if ($is_c && $target_group_id > 0) {
+        if ($has_places && $target_group_id > 0) {
             $capacity = $this->grm_repo->getGroupCapacities($mgmt->getId())[$target_group_id] ?? 0;
             $count = count(array_filter(
                 $this->grm_repo->getAssignments($mgmt->getId()),
@@ -662,7 +1101,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private function saveCapacities(): void
     {
         $mgmt = $this->requireManagement();
-        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_C || !$mgmt->isDrawn()) {
+        if (!ilGrmMethods::hasPlaces($mgmt->getMethod()) || !$mgmt->hasGroups()) {
             $this->redirectTo("showManagement", $mgmt);
         }
 
@@ -714,7 +1153,16 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
         $items = [];
         foreach ($managements as $mgmt) {
-            if ($mgmt->isPublished()) {
+            $label = $this->txt("your_group");
+            if ($mgmt->getMethod() === ilGrmMethods::METHOD_D && $mgmt->isRegistrationOpen()) {
+                $label = $this->txt("registration_status");
+                $has_wishes = isset($this->grm_repo->getWishes($mgmt->getId())[$this->user->getId()]);
+                if ($mgmt->isRegistrationDeadlinePassed()) {
+                    $value = $this->txt("registration_closed_short");
+                } else {
+                    $value = $has_wishes ? $this->txt("wishes_handed_in") : $this->txt("registration_open_no_wishes");
+                }
+            } elseif ($mgmt->isPublished()) {
                 $groups = $this->grm_repo->getGroups($mgmt->getId());
                 $my_group_id = $this->grm_repo->getAssignments($mgmt->getId())[$this->user->getId()] ?? null;
                 if ($my_group_id !== null && isset($groups[$my_group_id])) {
@@ -730,7 +1178,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
             $items[] = $f->item()->standard(
                 $f->button()->shy($this->esc($mgmt->getTitle()), $this->linkTo("showStudentManagement", $mgmt))
-            )->withProperties([$this->txt("your_group") => $value]);
+            )->withProperties([$label => $value]);
         }
 
         $this->tpl->setContent($this->ui_renderer->render(
@@ -744,12 +1192,27 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
      */
     private function showStudentManagement(): void
     {
+        $this->renderStudentManagement($this->requireStudentManagement());
+    }
+
+    /**
+     * Students may only see active managements (lecturers all, for the preview).
+     */
+    private function requireStudentManagement(): ilGrmManagement
+    {
         $mgmt = $this->requireManagement();
         if (!$mgmt->isActive() && !$this->isLecturer()) {
             $this->tpl->setOnScreenMessage("failure", $this->txt("management_not_found"), true);
             $this->ctrl->redirect($this, "showContent");
         }
+        return $mgmt;
+    }
 
+    /**
+     * @param ilPropertyFormGUI|null $wishes_form method d: form with input errors to show again
+     */
+    private function renderStudentManagement(ilGrmManagement $mgmt, ?ilPropertyFormGUI $wishes_form = null): void
+    {
         $this->tabs->activateTab(self::TAB_CONTENT);
         $f = $this->ui_factory;
 
@@ -762,6 +1225,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
 
         $this->tpl->setTitle($this->object->getTitle() . ": " . $mgmt->getTitle());
+
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_D && !$mgmt->isPublished()) {
+            $this->showStudentRegistration($mgmt, $wishes_form);
+            return;
+        }
 
         if (!$mgmt->isPublished()) {
             $this->tpl->setContent($this->ui_renderer->render(
@@ -785,9 +1253,17 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $components = [];
         if ($my_group_id !== null) {
             // own group first and set apart
-            $components[] = $f->messageBox()->success(
-                sprintf($this->txt("you_are_in_group"), $this->esc($groups[$my_group_id]))
-            );
+            $message = sprintf($this->txt("you_are_in_group"), $this->esc($groups[$my_group_id]));
+            if ($mgmt->getMethod() === ilGrmMethods::METHOD_D) {
+                $my_wishes = $this->grm_repo->getWishes($mgmt->getId())[$this->user->getId()] ?? [];
+                $priority = ilGrmPriorityAssigner::priorityOf($my_wishes, $my_group_id);
+                if ($priority !== null) {
+                    $message .= " " . sprintf($this->txt("you_got_priority"), $priority);
+                } elseif ($my_wishes !== []) {
+                    $message .= " " . $this->txt("you_got_not_wished");
+                }
+            }
+            $components[] = $f->messageBox()->success($message);
             $components = array_merge($components, $this->buildGroupPanels(
                 [$my_group_id => $groups[$my_group_id]],
                 $assignments,
@@ -814,6 +1290,171 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
 
         $this->tpl->setContent($this->ui_renderer->render($components));
+    }
+
+    /**
+     * Method d (student view) before "Los": hand in, change or withdraw the
+     * wishes while the registration is open.
+     */
+    private function showStudentRegistration(ilGrmManagement $mgmt, ?ilPropertyFormGUI $form = null): void
+    {
+        $f = $this->ui_factory;
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        $my_wishes = $this->grm_repo->getWishes($mgmt->getId())[$this->user->getId()] ?? [];
+
+        $components = [];
+        $modals = [];
+        $form_html = "";
+
+        if (!$mgmt->isRegistrationOpen()) {
+            $components[] = $f->messageBox()->info(
+                $mgmt->hasGroups() ? $this->txt("registration_closed_wait") : $this->txt("registration_not_open_yet")
+            );
+        } elseif ($mgmt->isRegistrationDeadlinePassed()) {
+            $components[] = $f->messageBox()->info(sprintf(
+                $this->txt("registration_deadline_passed"),
+                ilDatePresentation::formatDate(new ilDateTime($mgmt->getRegistrationEnd(), IL_CAL_UNIX))
+            ));
+        } else {
+            $intro = sprintf($this->txt("registration_intro"), min($mgmt->getNumPriorities(), count($groups)));
+            if ($mgmt->getRegistrationEnd() > 0) {
+                $intro .= " " . sprintf(
+                    $this->txt("registration_deadline_info"),
+                    ilDatePresentation::formatDate(new ilDateTime($mgmt->getRegistrationEnd(), IL_CAL_UNIX))
+                );
+            }
+            $components[] = $f->messageBox()->info($intro);
+            if ($my_wishes !== []) {
+                $components[] = $f->messageBox()->success($this->txt("wishes_saved_info"));
+                $modals[] = $modal = $this->buildConfirmModal(
+                    $mgmt,
+                    $this->txt("confirm_withdraw_wishes"),
+                    "withdrawWishes",
+                    $this->txt("withdraw_wishes")
+                );
+                $this->toolbar->addComponent(
+                    $f->button()->standard($this->txt("withdraw_wishes"), "")->withOnClick($modal->getShowSignal())
+                );
+            }
+            $form ??= $this->initWishesForm($mgmt, $groups, $my_wishes);
+            $form_html = $form->getHTML();
+        }
+
+        if ($form_html === "" && $my_wishes !== []) {
+            $items = [];
+            foreach ($my_wishes as $group_id) {
+                $items[] = $this->esc($groups[$group_id] ?? "?");
+            }
+            $components[] = $f->panel()->standard($this->txt("your_wishes"), $f->listing()->ordered($items));
+        }
+
+        $this->tpl->setContent(
+            $this->ui_renderer->render($components) . $form_html . $this->ui_renderer->render($modals)
+        );
+    }
+
+    /**
+     * Method d: one selection per priority (1st wish required, the others optional).
+     *
+     * @param array<int, string> $groups
+     * @param int[]              $wishes current wishes, highest priority first
+     */
+    private function initWishesForm(ilGrmManagement $mgmt, array $groups, array $wishes): ilPropertyFormGUI
+    {
+        $form = new ilPropertyFormGUI();
+        $form->setTitle($this->txt("your_wishes"));
+        $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
+        $form->setFormAction($this->ctrl->getFormAction($this, "saveWishes"));
+        $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
+
+        $capacities = $this->grm_repo->getGroupCapacities($mgmt->getId());
+        $group_options = [];
+        foreach ($groups as $group_id => $title) {
+            $group_options[$group_id] = $title . " (" . sprintf($this->txt("places_n"), $capacities[$group_id] ?? 0) . ")";
+        }
+
+        $count = min($mgmt->getNumPriorities(), count($groups));
+        for ($priority = 1; $priority <= $count; $priority++) {
+            $select = new ilSelectInputGUI(sprintf($this->txt("priority_n"), $priority), "prio_" . $priority);
+            $select->setOptions(
+                ["" => $priority === 1 ? $this->txt("choose_group_option") : $this->txt("no_wish_option")]
+                + $group_options
+            );
+            if ($priority === 1) {
+                $select->setRequired(true);
+            }
+            $select->setValue((string) ($wishes[$priority - 1] ?? ""));
+            $form->addItem($select);
+        }
+
+        $form->addCommandButton("saveWishes", $this->txt("save_wishes"));
+        return $form;
+    }
+
+    private function saveWishes(): void
+    {
+        $mgmt = $this->requireStudentManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_D || !$mgmt->isRegistrationOpen()) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("registration_not_open"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+        if ($mgmt->isRegistrationDeadlinePassed()) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("registration_deadline_over"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+        $user_id = $this->user->getId();
+        if (!in_array($user_id, $this->getCourseMembers(), true)) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("registration_not_member"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        $form = $this->initWishesForm($mgmt, $groups, []);
+        $valid = $form->checkInput();
+
+        $chosen = [];
+        $count = min($mgmt->getNumPriorities(), count($groups));
+        for ($priority = 1; $valid && $priority <= $count; $priority++) {
+            $group_id = (int) $form->getInput("prio_" . $priority);
+            if ($group_id <= 0) {
+                continue;
+            }
+            if (!isset($groups[$group_id]) || in_array($group_id, $chosen, true)) {
+                $item = $form->getItemByPostVar("prio_" . $priority);
+                if ($item !== null) {
+                    $item->setAlert($this->txt("wishes_duplicate"));
+                }
+                $valid = false;
+                break;
+            }
+            $chosen[] = $group_id;
+        }
+        if (!$valid || $chosen === []) {
+            $this->tpl->setOnScreenMessage("failure", $this->lng->txt("form_input_not_valid"));
+            $form->setValuesByPost();
+            $this->renderStudentManagement($mgmt, $form);
+            return;
+        }
+
+        if (!$this->grm_registration->saveWishes($mgmt->getId(), $user_id, $chosen)) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("registration_not_open"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+        // the page itself confirms the saved wishes ("wishes_saved_info")
+        $this->redirectTo("showStudentManagement", $mgmt);
+    }
+
+    private function withdrawWishes(): void
+    {
+        $mgmt = $this->requireStudentManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_D
+            || $mgmt->isRegistrationDeadlinePassed()
+            || !$this->grm_registration->withdraw($mgmt->getId(), $this->user->getId())) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("registration_not_open"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+        $this->tpl->setOnScreenMessage("success", $this->txt("wishes_withdrawn"), true);
+        $this->redirectTo("showStudentManagement", $mgmt);
     }
 
     /**
@@ -975,17 +1616,10 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
 
         $result = $this->grm_enrollment->enroll($mgmt->getId(), $group_id, $user_id, $mgmt->hasWaitlist());
-        $groups = $this->grm_repo->getGroups($mgmt->getId());
         switch ($result) {
             case ilGrmEnrollment::RESULT_ENROLLED:
-                $this->tpl->setOnScreenMessage(
-                    "success",
-                    sprintf($this->txt("enroll_success"), $this->esc($groups[$group_id] ?? "")),
-                    true
-                );
-                break;
             case ilGrmEnrollment::RESULT_WAITLISTED:
-                $this->tpl->setOnScreenMessage("info", (string) $this->getWaitlistText($mgmt, $groups), true);
+                // the page itself shows the group or the waitlist place
                 break;
             case ilGrmEnrollment::RESULT_FULL:
                 $this->tpl->setOnScreenMessage("failure", $this->txt("enroll_full"), true);
@@ -1090,8 +1724,17 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 "c_num_groups" => (string) $mgmt->getNumGroups(),
                 "c_places" => (string) $mgmt->getPlacesPerGroup(),
                 "c_waitlist" => $mgmt->hasWaitlist(),
+                "d_assign_mode" => $mgmt->getAssignMode(),
+                "d_num_groups" => (string) $mgmt->getNumGroups(),
+                "d_topics" => implode("\n", $mgmt->getTopics()),
+                "d_places" => (string) $mgmt->getPlacesPerGroup(),
+                "d_num_prios" => (string) $mgmt->getNumPriorities(),
                 "show_all" => $mgmt->isShowAllGroups(),
             ]);
+            $deadline = $form->getItemByPostVar("d_reg_end");
+            if ($deadline instanceof ilDateTimeInputGUI && $mgmt->getRegistrationEnd() > 0) {
+                $deadline->setDate(new ilDateTime($mgmt->getRegistrationEnd(), IL_CAL_UNIX));
+            }
             if ($mgmt->isDrawn() && !$this->isStructureLocked($mgmt)) {
                 $this->tpl->setOnScreenMessage("info", $this->txt("edit_resets_draw_info"));
             }
@@ -1178,7 +1821,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             if ($this->isStructureLocked($mgmt)) {
                 $mode = new ilNonEditableValueGUI($this->txt("assign_mode"), "", true);
                 $mode->setValue($this->getModeSummary($mgmt));
-                $mode->setInfo($mgmt->getMethod() === ilGrmMethods::METHOD_C
+                $mode->setInfo(ilGrmMethods::hasPlaces($mgmt->getMethod()) && !$mgmt->isPublished()
                     ? $this->txt("settings_locked_c")
                     : $this->txt("settings_locked_published"));
                 $form->addItem($mode);
@@ -1218,9 +1861,39 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 return $this->buildGroupSizeInputs();
             case ilGrmMethods::METHOD_C:
                 return $this->buildEnrollmentInputs();
+            case ilGrmMethods::METHOD_D:
+                return $this->buildPriorityInputs();
             default:
                 return [];
         }
+    }
+
+    /**
+     * Method d: groups or topics, places per group and number of wishes.
+     *
+     * @return ilFormPropertyGUI[]
+     */
+    private function buildPriorityInputs(): array
+    {
+        $places = new ilNumberInputGUI($this->txt("places_per_group"), "d_places");
+        $places->setRequired(true);
+        $places->setDecimals(0);
+        $places->setMinValue(1);
+        $places->setMaxValue(ilGrmManagement::MAX_GROUP_SIZE);
+        $places->setSize(4);
+        $places->setValue("5");
+        $places->setInfo($this->txt("places_per_group_info_d"));
+
+        $num_prios = new ilNumberInputGUI($this->txt("num_priorities"), "d_num_prios");
+        $num_prios->setRequired(true);
+        $num_prios->setDecimals(0);
+        $num_prios->setMinValue(1);
+        $num_prios->setMaxValue(ilGrmManagement::MAX_PRIORITIES);
+        $num_prios->setSize(4);
+        $num_prios->setValue("3");
+        $num_prios->setInfo($this->txt("num_priorities_info"));
+
+        return [$this->buildAssignModeInput("d_"), $places, $num_prios];
     }
 
     /**
@@ -1230,6 +1903,12 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
      */
     private function buildMethodExtraInputs(string $method): array
     {
+        if ($method === ilGrmMethods::METHOD_D) {
+            $deadline = new ilDateTimeInputGUI($this->txt("registration_end"), "d_reg_end");
+            $deadline->setShowTime(true);
+            $deadline->setInfo($this->txt("registration_end_info"));
+            return [$deadline];
+        }
         if ($method !== ilGrmMethods::METHOD_C) {
             return [];
         }
@@ -1267,13 +1946,14 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
-     * Group structure can no longer be changed: after "Los", and for method c
-     * as soon as the groups exist (they may contain enrollments).
+     * Group structure can no longer be changed: after "Los", and for methods
+     * with places (c, d) as soon as the groups exist (they may contain
+     * enrollments or be referenced by wishes).
      */
     private function isStructureLocked(ilGrmManagement $mgmt): bool
     {
         return $mgmt->isPublished()
-            || ($mgmt->getMethod() === ilGrmMethods::METHOD_C && $mgmt->isDrawn());
+            || (ilGrmMethods::hasPlaces($mgmt->getMethod()) && $mgmt->hasGroups());
     }
 
     /**
@@ -1319,24 +1999,29 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $mgmt->getTopics(),
             $mgmt->getGroupSize(),
             $mgmt->getRemainderMode(),
+            $mgmt->getNumPriorities(),
         ];
     }
 
     /**
-     * Method a: "fixed number of groups" or "fixed number of topics".
+     * Methods a and d: "fixed number of groups" or "fixed number of topics".
+     *
+     * @param string $prefix prefix of the post variables (each method needs its own)
      */
-    private function buildAssignModeInput(): ilRadioGroupInputGUI
+    private function buildAssignModeInput(string $prefix = ""): ilRadioGroupInputGUI
     {
-        $mode = new ilRadioGroupInputGUI($this->txt("assign_mode"), "assign_mode");
+        $mode = new ilRadioGroupInputGUI($this->txt("assign_mode"), $prefix . "assign_mode");
         $mode->setRequired(true);
         $mode->setValue(ilGrmManagement::MODE_GROUPS);
 
+        // method d: the students choose, nobody is distributed randomly
+        $info_suffix = $prefix === "d_" ? "_d" : "";
         $groups = new ilRadioOption(
             $this->txt("mode_groups"),
             ilGrmManagement::MODE_GROUPS,
-            $this->txt("mode_groups_info")
+            $this->txt("mode_groups_info" . $info_suffix)
         );
-        $num = new ilNumberInputGUI($this->txt("num_groups"), "num_groups");
+        $num = new ilNumberInputGUI($this->txt("num_groups"), $prefix . "num_groups");
         $num->setRequired(true);
         $num->setDecimals(0);
         $num->setMinValue(1);
@@ -1349,9 +2034,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $topics_option = new ilRadioOption(
             $this->txt("mode_topics"),
             ilGrmManagement::MODE_TOPICS,
-            $this->txt("mode_topics_info")
+            $this->txt("mode_topics_info" . $info_suffix)
         );
-        $topics = new ilTextAreaInputGUI($this->txt("topics"), "topics");
+        $topics = new ilTextAreaInputGUI($this->txt("topics"), $prefix . "topics");
         $topics->setRequired(true);
         $topics->setRows(6);
         $topics->setInfo($this->txt("topics_info"));
@@ -1380,9 +2065,18 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
             $mgmt->setWaitlist((bool) $form->getInput("c_waitlist"));
         }
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_D) {
+            $deadline = $form->getItemByPostVar("d_reg_end");
+            $date = $deadline instanceof ilDateTimeInputGUI ? $deadline->getDate() : null;
+            $mgmt->setRegistrationEnd($date !== null ? (int) $date->get(IL_CAL_UNIX) : 0);
+        }
 
         if ($this->isStructureLocked($mgmt)) {
             return true;
+        }
+
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_D) {
+            return $this->applyPriorityForm($form, $mgmt);
         }
 
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
@@ -1435,6 +2129,48 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $mgmt->setNumGroups($num);
         }
 
+        return true;
+    }
+
+    /**
+     * Method d: groups or topics, places and number of wishes.
+     */
+    private function applyPriorityForm(ilPropertyFormGUI $form, ilGrmManagement $mgmt): bool
+    {
+        $mgmt->setAssignMode((string) $form->getInput("d_assign_mode"));
+        if ($mgmt->getAssignMode() === ilGrmManagement::MODE_TOPICS) {
+            $topics = ilGrmManagement::parseTopics((string) $form->getInput("d_topics"));
+            if ($topics === [] || count($topics) > ilGrmManagement::MAX_GROUPS) {
+                $this->setFormAlert($form, "d_topics", sprintf($this->txt("topics_invalid"), ilGrmManagement::MAX_GROUPS));
+                return false;
+            }
+            $mgmt->setTopics($topics);
+        } else {
+            $num = (int) $form->getInput("d_num_groups");
+            if ($num < 1 || $num > ilGrmManagement::MAX_GROUPS) {
+                $this->setFormAlert($form, "d_num_groups", sprintf($this->txt("num_groups_invalid"), ilGrmManagement::MAX_GROUPS));
+                return false;
+            }
+            $mgmt->setNumGroups($num);
+        }
+
+        $places = (int) $form->getInput("d_places");
+        if ($places < 1 || $places > ilGrmManagement::MAX_GROUP_SIZE) {
+            $this->setFormAlert($form, "d_places", sprintf($this->txt("places_invalid"), ilGrmManagement::MAX_GROUP_SIZE));
+            return false;
+        }
+        $mgmt->setPlacesPerGroup($places);
+
+        $num_prios = (int) $form->getInput("d_num_prios");
+        $groups = $mgmt->getEffectiveNumberOfGroups();
+        if ($num_prios < 1 || $num_prios > ilGrmManagement::MAX_PRIORITIES || $num_prios > $groups) {
+            $this->setFormAlert($form, "d_num_prios", sprintf(
+                $this->txt("num_priorities_invalid"),
+                min(ilGrmManagement::MAX_PRIORITIES, $groups)
+            ));
+            return false;
+        }
+        $mgmt->setNumPriorities($num_prios);
         return true;
     }
 
@@ -1525,6 +2261,10 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
 
         $is_c = $mgmt->getMethod() === ilGrmMethods::METHOD_C;
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_D && !$mgmt->isDrawn()) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("go_needs_assignment"), true);
+            $this->redirectTo("showManagement", $mgmt);
+        }
         if (!$mgmt->isDrawn()) {
             $prepared = $is_c ? $this->createEnrollmentGroups($mgmt) : $this->performDraw($mgmt);
             if (!$prepared) {
@@ -1592,6 +2332,148 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     /**
      * Random assignment of all course members (methods a and b).
      */
+    // ------------------------------------------------------------------
+    // Method d: registration with priorities
+    // ------------------------------------------------------------------
+
+    /**
+     * Creates the groups and opens the registration (students hand in their wishes).
+     */
+    private function openRegistration(): void
+    {
+        $mgmt = $this->requireManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_D || $mgmt->hasGroups()) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        if ($this->getCourseRefId() === 0) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("no_parent_course"), true);
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        $titles = $mgmt->buildGroupTitles(fn(int $n): string => sprintf($this->txt("group_title_n"), $n));
+        if ($titles === []) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("no_groups_configured"), true);
+            $this->redirectTo("showManagement", $mgmt);
+        }
+
+        $this->grm_repo->createGroups($mgmt->getId(), $titles, $mgmt->getPlacesPerGroup());
+        $mgmt->setStatus(ilGrmManagement::STATUS_OPEN);
+        $this->grm_repo->saveManagement($mgmt);
+
+        $message = $this->txt("registration_opened");
+        if (!$mgmt->isActive()) {
+            $this->grm_repo->activate($mgmt);
+            $message .= " " . $this->txt("management_activated");
+        }
+        $this->tpl->setOnScreenMessage("success", $message, true);
+        $this->redirectTo("showManagement", $mgmt);
+    }
+
+    /**
+     * Closes the registration and calculates the assignment (correction mode).
+     */
+    private function closeRegistration(): void
+    {
+        $mgmt = $this->requireManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_D || !$mgmt->isRegistrationOpen()) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        if (!$this->grm_registration->close($mgmt->getId())) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("registration_not_open"), true);
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        $mgmt->setStatus(ilGrmManagement::STATUS_DRAWN);
+
+        [$assigned, $registered] = $this->runPriorityAssignment($mgmt);
+        $this->tpl->setOnScreenMessage("success", sprintf($this->txt("assignment_done"), $assigned, $registered), true);
+        $this->redirectTo("showManagement", $mgmt);
+    }
+
+    /**
+     * Calculates the assignment again from the wishes (manual corrections are discarded).
+     */
+    private function recalculateAssignment(): void
+    {
+        $mgmt = $this->requireManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_D || !$mgmt->isDrawn() || $mgmt->isPublished()) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        [$assigned, $registered] = $this->runPriorityAssignment($mgmt);
+        $this->tpl->setOnScreenMessage("success", sprintf($this->txt("assignment_done"), $assigned, $registered), true);
+        $this->redirectTo("showManagement", $mgmt);
+    }
+
+    /**
+     * Opens the registration again; the calculated assignment is discarded,
+     * the wishes are kept.
+     */
+    private function reopenRegistration(): void
+    {
+        $mgmt = $this->requireManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_D || !$mgmt->isDrawn() || $mgmt->isPublished()) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        $this->grm_enrollment->replaceAssignments($mgmt->getId(), []);
+        $mgmt->setStatus(ilGrmManagement::STATUS_OPEN);
+        $this->grm_repo->saveManagement($mgmt);
+        $this->tpl->setOnScreenMessage("success", $this->txt("registration_reopened"), true);
+        $this->redirectTo("showManagement", $mgmt);
+    }
+
+    /**
+     * Course members without a group get the free places (randomly).
+     */
+    private function fillFreePlaces(): void
+    {
+        $mgmt = $this->requireManagement();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_D || !$mgmt->isDrawn()) {
+            $this->redirectTo("showManagement", $mgmt);
+        }
+        $assignments = $this->grm_repo->getAssignments($mgmt->getId());
+        $without_group = array_values(array_diff($this->getCourseMembers(), array_keys($assignments)));
+        $filled = $this->grm_enrollment->fillFreePlaces($mgmt->getId(), $without_group);
+
+        $message = sprintf($this->txt("free_places_filled"), count($filled));
+        $left = count($without_group) - count($filled);
+        if ($left > 0) {
+            $message .= " " . sprintf($this->txt("still_without_place"), $left);
+        }
+        $this->tpl->setOnScreenMessage($filled === [] ? "info" : "success", $message, true);
+        $this->redirectTo("showManagement", $mgmt);
+    }
+
+    /**
+     * Runs the assignment algorithm with the wishes of the current course
+     * members and the places of the groups.
+     *
+     * @return array{0: int, 1: int} [persons with a place, persons with wishes]
+     */
+    private function runPriorityAssignment(ilGrmManagement $mgmt): array
+    {
+        $members = array_flip($this->getCourseMembers());
+        $wishes = array_intersect_key($this->grm_repo->getWishes($mgmt->getId()), $members);
+        $capacities = $this->grm_repo->getGroupCapacities($mgmt->getId());
+
+        $assignment = (new ilGrmPriorityAssigner())->assign($wishes, $capacities);
+        $this->grm_enrollment->replaceAssignments($mgmt->getId(), $assignment);
+
+        return [count($assignment), count($wishes)];
+    }
+
+    /**
+     * "A > B > C" for a list of wished group ids (raw, not escaped).
+     *
+     * @param int[]              $wishes
+     * @param array<int, string> $groups
+     */
+    private function formatWishes(array $wishes, array $groups): string
+    {
+        $titles = [];
+        foreach ($wishes as $group_id) {
+            $titles[] = $groups[$group_id] ?? "?";
+        }
+        return implode(" > ", $titles);
+    }
+
     /**
      * Method c: creates the (empty) groups with the configured number of places.
      */
@@ -1671,6 +2553,42 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private function getCourseMembers(): array
     {
         return $this->grm_course->getCourseMemberIds($this->getCourseRefId());
+    }
+
+    /**
+     * Lecturers: course members have no permission on the object (objects
+     * created before the plugin set default permissions).
+     */
+    private function applyDefaultPermissions(): void
+    {
+        $ref_id = $this->object->getRefId();
+        if (!$this->access->checkAccess("edit_permission", "", $ref_id)) {
+            $this->tpl->setOnScreenMessage("failure", $this->lng->txt("permission_denied"), true);
+            $this->ctrl->redirect($this, "showContent");
+        }
+        $this->grm_permissions->applyDefaults($ref_id);
+        $this->tpl->setOnScreenMessage("success", $this->txt("permissions_applied"), true);
+        $this->ctrl->redirect($this, "showContent");
+    }
+
+    /**
+     * @return Component[] warning with button if course members cannot see the object
+     */
+    private function buildPermissionWarning(): array
+    {
+        $ref_id = $this->object->getRefId();
+        if (!$this->access->checkAccess("edit_permission", "", $ref_id)
+            || !$this->grm_permissions->isMemberAccessMissing($ref_id)) {
+            return [];
+        }
+        return [
+            $this->ui_factory->messageBox()->failure($this->txt("permissions_missing_info"))->withButtons([
+                $this->ui_factory->button()->standard(
+                    $this->txt("apply_default_permissions"),
+                    $this->ctrl->getLinkTarget($this, "applyDefaultPermissions")
+                ),
+            ]),
+        ];
     }
 
     private function showContextMessages(): void
@@ -1819,15 +2737,33 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         return [
             $this->txt("method") => $this->txt("method_" . $mgmt->getMethod()),
             $this->txt("assign_mode") => $this->getModeSummary($mgmt),
-            $this->txt("status") => $mgmt->getMethod() === ilGrmMethods::METHOD_C
-                ? $this->txt("status_c_" . $mgmt->getStatus())
-                : $this->txt("status_" . $mgmt->getStatus()),
+            $this->txt("status") => $this->getStatusLabel($mgmt),
             $this->txt("active") => $mgmt->isActive() ? $this->lng->txt("yes") : $this->lng->txt("no"),
         ];
     }
 
+    private function getStatusLabel(ilGrmManagement $mgmt): string
+    {
+        switch ($mgmt->getMethod()) {
+            case ilGrmMethods::METHOD_C:
+                return $this->txt("status_c_" . $mgmt->getStatus());
+            case ilGrmMethods::METHOD_D:
+                return $this->txt("status_d_" . $mgmt->getStatus());
+            default:
+                return $this->txt("status_" . $mgmt->getStatus());
+        }
+    }
+
     private function getModeSummary(ilGrmManagement $mgmt): string
     {
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_D) {
+            return sprintf(
+                $mgmt->usesTopics() ? $this->txt("summary_d_topics") : $this->txt("summary_d_groups"),
+                $mgmt->getEffectiveNumberOfGroups(),
+                $mgmt->getPlacesPerGroup(),
+                $mgmt->getNumPriorities()
+            );
+        }
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
             return sprintf($this->txt("summary_c"), $mgmt->getNumGroups(), $mgmt->getPlacesPerGroup())
                 . " – " . ($mgmt->hasWaitlist() ? $this->txt("waitlist_on") : $this->txt("waitlist_off"));

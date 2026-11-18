@@ -5,13 +5,15 @@ declare(strict_types=1);
 /**
  * One "Gruppenmanagement" inside a GroupManagement repository object.
  *
- * Each management uses exactly one method (a–j). Per repository object only
- * one management can be active at the same time.
+ * Each management uses exactly one method (a–j). Several managements of a
+ * repository object can be active at the same time.
  */
 class ilGrmManagement
 {
     /** Configured, but no assignment has been drawn yet */
     public const STATUS_DRAFT = "draft";
+    /** Method d: registration is open (the groups exist, students hand in their priorities) */
+    public const STATUS_OPEN = "open";
     /** Assignment has been drawn, visible for lecturers only */
     public const STATUS_DRAWN = "drawn";
     /** "Go" has been pressed: the assignment is visible for the students */
@@ -34,6 +36,9 @@ class ilGrmManagement
     public const MIN_GROUP_SIZE = 2;
     public const MAX_GROUP_SIZE = 100;
 
+    /** Method d: maximum number of priorities a person can hand in */
+    public const MAX_PRIORITIES = 10;
+
     private int $id = 0;
     private int $obj_id;
     private string $method;
@@ -49,6 +54,10 @@ class ilGrmManagement
     private string $remainder_mode = self::REMAINDER_SMALLER;
     /** Method c: waitlist with automatic move-up */
     private bool $waitlist = true;
+    /** Method d: number of priorities (wishes) a person hands in */
+    private int $num_priorities = 3;
+    /** Method d: registration deadline (unix time), 0 = none */
+    private int $registration_end = 0;
     private int $created = 0;
     private ?int $published = null;
 
@@ -116,6 +125,23 @@ class ilGrmManagement
     public function isDrawn(): bool
     {
         return $this->status === self::STATUS_DRAWN || $this->status === self::STATUS_PUBLISHED;
+    }
+
+    /**
+     * Method d: students can hand in their priorities.
+     */
+    public function isRegistrationOpen(): bool
+    {
+        return $this->status === self::STATUS_OPEN;
+    }
+
+    /**
+     * The groups have been created (they may already contain persons or
+     * be referenced by wishes).
+     */
+    public function hasGroups(): bool
+    {
+        return $this->status !== self::STATUS_DRAFT;
     }
 
     public function getAssignMode(): string
@@ -209,6 +235,34 @@ class ilGrmManagement
         $this->group_size = max(1, min(self::MAX_GROUP_SIZE, $places));
     }
 
+    public function getNumPriorities(): int
+    {
+        return $this->num_priorities;
+    }
+
+    public function setNumPriorities(int $num_priorities): void
+    {
+        $this->num_priorities = max(1, min(self::MAX_PRIORITIES, $num_priorities));
+    }
+
+    public function getRegistrationEnd(): int
+    {
+        return $this->registration_end;
+    }
+
+    public function setRegistrationEnd(int $registration_end): void
+    {
+        $this->registration_end = max(0, $registration_end);
+    }
+
+    /**
+     * Method d: the registration deadline has passed.
+     */
+    public function isRegistrationDeadlinePassed(?int $now = null): bool
+    {
+        return $this->registration_end > 0 && ($now ?? time()) > $this->registration_end;
+    }
+
     public function getCreated(): int
     {
         return $this->created;
@@ -250,11 +304,12 @@ class ilGrmManagement
     }
 
     /**
-     * Method a with "fixed number of topics": one group per topic.
+     * Methods a and d with topics: one group per topic.
      */
     public function usesTopics(): bool
     {
-        return $this->method === ilGrmMethods::METHOD_A && $this->assign_mode === self::MODE_TOPICS;
+        return in_array($this->method, [ilGrmMethods::METHOD_A, ilGrmMethods::METHOD_D], true)
+            && $this->assign_mode === self::MODE_TOPICS;
     }
 
     /**

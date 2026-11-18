@@ -35,8 +35,8 @@ method_b#:#B – Feste Gruppengrösse
 method_b_info#:#Die Dozierenden legen fest, wie viele Personen eine Gruppe hat (2er-, 3er-, 4er-Gruppen usw.). Die Mitglieder des übergeordneten Kurses werden nach dem Zufallsprinzip eingeteilt; die Anzahl Gruppen ergibt sich aus der Anzahl Kursmitglieder. Die Einteilung wird erst nach „Los“ für die Studierenden sichtbar.
 method_c#:#C – First Come – First Serve
 method_c_info#:#Die Studierenden schreiben sich selbst in eine Gruppe ein – wer zuerst kommt, erhält den Platz. Die Gruppengrösse bestimmt die Anzahl Plätze; optional mit Warteliste und automatischem Nachrücken bei Abmeldung. Nach der Vergabe können die Plätze pro Gruppe einzeln geändert werden.
-method_d#:#D – (in Vorbereitung)
-method_d_info#:#Diese Methode ist noch nicht verfügbar.
+method_d#:#D – Anmeldung mit Prioritäten
+method_d_info#:#Die Studierenden geben ihre Wünsche in der Reihenfolge ihrer Priorität an (1. Wunsch, 2. Wunsch, …). Nach Anmeldeschluss verteilt ein Algorithmus die Plätze so, dass möglichst viele Personen einen Platz und einen ihrer vorderen Wünsche erhalten; der Zeitpunkt der Anmeldung spielt keine Rolle. Danach können die Dozierenden die Einteilung im Nachkorrekturmodus anpassen und mit „Los“ freigeben.
 method_e#:#E – (in Vorbereitung)
 method_e_info#:#Diese Methode ist noch nicht verfügbar.
 method_f#:#F – (in Vorbereitung)
@@ -55,6 +55,8 @@ mode_groups#:#Feste Anzahl Gruppen
 mode_groups_info#:#Die Kursmitglieder werden zufällig und möglichst gleichmässig auf die angegebene Anzahl Gruppen verteilt.
 mode_topics#:#Feste Anzahl Themen
 mode_topics_info#:#Pro Thema wird eine Gruppe gebildet. Die Kursmitglieder werden zufällig und möglichst gleichmässig auf die Themen verteilt.
+mode_groups_info_d#:#Es werden so viele Gruppen gebildet („Gruppe 1“, „Gruppe 2“, …). Die Studierenden wählen ihre Wunschgruppen.
+mode_topics_info_d#:#Pro Thema wird eine Gruppe gebildet. Die Studierenden wählen ihre Wunschthemen.
 num_groups#:#Anzahl Gruppen
 num_groups_invalid#:#Bitte eine Anzahl zwischen 1 und %s angeben.
 topics#:#Themen
@@ -95,12 +97,12 @@ places_free#:#%s von %s Plätzen frei
 group_full#:#Voll
 members#:#Mitglieder
 waitlist#:#Warteliste
-waitlist_count#:#%s Personen warten
+waitlist_count#:#Wartende: %s
 capacities#:#Plätze pro Gruppe ändern
 capacities_info#:#Die Anzahl Plätze kann für jede Gruppe einzeln geändert werden. Werden dadurch Plätze frei, rücken Personen von der Warteliste automatisch nach.
 save_capacities#:#Plätze speichern
 capacities_saved#:#Die Plätze wurden gespeichert.
-moved_up_from_waitlist#:#%s Personen sind von der Warteliste nachgerückt.
+moved_up_from_waitlist#:#Von der Warteliste nachgerückt: %s.
 move_member#:#Person verschieben oder entfernen
 move_member_info#:#Wählen Sie eine Person und die neue Gruppe. Mit „Keine Gruppe“ wird die Person aus ihrer Gruppe entfernt.
 move_member_info_c#:#Wählen Sie eine Person und die neue Gruppe. Mit „Keine Gruppe“ wird die Person aus ihrer Gruppe oder von der Warteliste entfernt. Ein frei gewordener Platz wird automatisch aus der Warteliste besetzt. Volle Gruppen können überbelegt werden.
@@ -125,7 +127,6 @@ leave_waitlist#:#Von der Warteliste abmelden
 confirm_unenroll#:#Wollen Sie sich wirklich aus der Gruppe abmelden? Ihr Platz geht an die nächste Person auf der Warteliste.
 confirm_leave_waitlist#:#Wollen Sie sich wirklich von der Warteliste abmelden?
 on_waitlist_for#:#Sie stehen auf der Warteliste für <strong>%s</strong> (Platz %s).
-enroll_success#:#Sie sind jetzt in: <strong>%s</strong>
 enroll_full#:#Die Gruppe ist bereits voll.
 enroll_already#:#Sie sind bereits in einer Gruppe eingeschrieben oder stehen auf einer Warteliste.
 enroll_not_member#:#Nur Mitglieder des Kurses können sich einschreiben.
@@ -177,8 +178,8 @@ draw_reset#:#Die bisherige Auslosung wurde verworfen, da die Einteilung geänder
 draw_done#:#Die Kursmitglieder wurden zufällig zugeteilt. Die Einteilung ist noch nicht für Studierende sichtbar.
 go_done#:#Die Gruppeneinteilung ist jetzt für die Studierenden sichtbar.
 unpublish_done#:#Die Freigabe wurde zurückgenommen.
-latecomers_assigned#:#%s Kursmitglieder wurden zugeteilt.
-unassigned_members_info#:#%s Kursmitglieder sind noch keiner Gruppe zugeteilt (z. B. weil sie nach der Auslosung beigetreten sind).
+latecomers_assigned#:#Neu zugeteilte Kursmitglieder: %s.
+unassigned_members_info#:#Kursmitglieder ohne Gruppe: %s (z. B. weil sie nach der Auslosung beigetreten sind).
 published_but_inactive#:#Die Einteilung ist freigegeben, aber dieses Gruppenmanagement ist nicht aktiv. Studierende sehen sie erst, wenn es aktiviert wird.
 more_groups_than_members#:#Es gibt mehr Gruppen als Kursmitglieder – einige Gruppen bleiben leer.
 no_parent_course#:#Dieses Objekt liegt nicht in einem Kurs. Die Gruppeneinteilung benötigt einen übergeordneten Kurs.
@@ -187,3 +188,82 @@ no_groups_configured#:#Es sind keine Gruppen bzw. Themen konfiguriert.
 assignment_not_visible_yet#:#Die Gruppeneinteilung ist noch nicht freigegeben.
 you_are_in_group#:#Sie sind in: <strong>%s</strong>
 you_are_not_assigned#:#Sie sind keiner Gruppe zugeteilt.
+places_per_group_info_d#:#Anzahl Plätze jeder Gruppe. Nach dem Öffnen der Anmeldung können die Plätze pro Gruppe einzeln geändert werden.
+num_priorities#:#Anzahl Wünsche pro Person
+num_priorities_info#:#So viele Prioritäten (1. Wunsch, 2. Wunsch, …) können die Studierenden angeben. Nur der 1. Wunsch ist Pflicht. Je mehr Wünsche angegeben werden, desto eher erhalten alle einen Platz.
+num_priorities_invalid#:#Bitte eine Anzahl Wünsche zwischen 1 und %s angeben (höchstens so viele wie Gruppen).
+registration_end#:#Anmeldeschluss
+registration_end_info#:#Optional. Nach diesem Zeitpunkt können die Studierenden ihre Wünsche nicht mehr ändern. Die Zuteilung starten Sie danach mit „Anmeldung schliessen und zuteilen“.
+summary_d_groups#:#%s Gruppen mit je %s Plätzen – %s Wünsche pro Person
+summary_d_topics#:#%s Themen mit je %s Plätzen – %s Wünsche pro Person
+status_d_draft#:#Anmeldung noch nicht geöffnet
+status_d_open#:#Anmeldung offen
+status_d_drawn#:#Zugeteilt – Nachkorrektur (nur für Dozierende sichtbar)
+status_d_published#:#Freigegeben (für Studierende sichtbar)
+open_registration#:#Anmeldung öffnen
+confirm_open_registration#:#Soll die Anmeldung jetzt geöffnet werden? Die Gruppen werden erstellt und die Studierenden können ihre Wünsche abgeben.
+registration_opened#:#Die Anmeldung ist jetzt offen.
+close_registration#:#Anmeldung schliessen und zuteilen
+confirm_close_registration#:#Soll die Anmeldung jetzt geschlossen werden? Danach können die Studierenden ihre Wünsche nicht mehr ändern, und die Plätze werden nach den Prioritäten zugeteilt. Die Einteilung ist erst nach „Los“ für die Studierenden sichtbar.
+assignment_done#:#Die Zuteilung wurde berechnet: %s von %s Personen mit Wünschen haben einen Platz erhalten.
+recalculate#:#Zuteilung neu berechnen
+confirm_recalculate#:#Soll die Zuteilung neu berechnet werden? Ihre Nachkorrekturen gehen dabei verloren.
+reopen_registration#:#Anmeldung wieder öffnen
+confirm_reopen_registration#:#Soll die Anmeldung wieder geöffnet werden? Die berechnete Zuteilung und Ihre Nachkorrekturen werden verworfen; die Wünsche bleiben erhalten.
+registration_reopened#:#Die Anmeldung ist wieder offen. Die Zuteilung wurde verworfen.
+fill_free_places#:#Freie Plätze auffüllen
+confirm_fill_free_places#:#Sollen die Kursmitglieder ohne Platz (auch die ohne Anmeldung) zufällig auf die freien Plätze verteilt werden? Bestehende Zuteilungen bleiben unverändert.
+free_places_filled#:#Freie Plätze vergeben: %s.
+still_without_place#:#Noch ohne Platz (keine freien Plätze mehr): %s.
+go_needs_assignment#:#Bitte zuerst die Anmeldung schliessen und die Zuteilung berechnen.
+not_open_yet_d#:#Die Anmeldung ist noch nicht geöffnet. Mit „Anmeldung öffnen“ werden die Gruppen erstellt und die Studierenden können ihre Wünsche abgeben.
+registration_open_info#:#Die Anmeldung ist offen: Die Studierenden geben jetzt ihre Wünsche ab. Mit „Anmeldung schliessen und zuteilen“ werden die Plätze nach den Prioritäten verteilt.
+registration_deadline_reached_info#:#Der Anmeldeschluss ist erreicht. Mit „Anmeldung schliessen und zuteilen“ werden die Plätze jetzt nach den Prioritäten verteilt.
+correction_mode_info#:#Nachkorrektur: Die Einteilung ist nur für Dozierende sichtbar. Sie können Personen verschieben, Plätze ändern oder freie Plätze auffüllen. Mit „Los“ wird die Einteilung für die Studierenden freigegeben.
+deadline_passed#:#abgelaufen
+registrations#:#Anmeldungen
+registrations_count#:#%s von %s Kursmitgliedern
+no_registrations_yet#:#Noch keine Anmeldungen.
+not_registered#:#Ohne Anmeldung
+demand#:#Nachfrage pro Gruppe
+first_choice_of#:#Als 1. Wunsch gewählt von
+wished_by#:#Insgesamt gewünscht von
+assignment_result#:#Ergebnis
+stat_priority#:#%s. Wunsch: %s
+stat_not_wished#:#nicht gewünscht: %s
+stat_without_place#:#ohne Platz: %s
+priority_short#:#%s. Wunsch
+not_wished#:#nicht gewünscht
+no_registration#:#ohne Anmeldung
+without_place#:#Ohne Platz
+wishes_short#:#Wünsche: %s
+capacities_info_d#:#Die Anzahl Plätze kann für jede Gruppe einzeln geändert werden. Die Zuteilung berücksichtigt die Plätze beim nächsten Berechnen.
+move_member_info_d#:#Wählen Sie eine Person und die neue Gruppe. Neben dem Namen stehen die aktuelle Gruppe und die Wünsche. Mit „Keine Gruppe“ wird die Person aus ihrer Gruppe entfernt. Volle Gruppen können überbelegt werden.
+registration_intro#:#Geben Sie bis zu %s Wünsche in der Reihenfolge Ihrer Priorität an. Nach Anmeldeschluss werden die Plätze so verteilt, dass möglichst viele Personen einen ihrer vorderen Wünsche erhalten. Der Zeitpunkt Ihrer Anmeldung spielt keine Rolle, und Sie können Ihre Wünsche bis zum Anmeldeschluss ändern.
+registration_deadline_info#:#Anmeldeschluss: %s.
+registration_deadline_passed#:#Der Anmeldeschluss (%s) ist vorbei. Ihre Wünsche können nicht mehr geändert werden. Die Einteilung wird angezeigt, sobald sie freigegeben ist.
+registration_deadline_over#:#Der Anmeldeschluss ist vorbei.
+registration_not_open_yet#:#Die Anmeldung ist noch nicht geöffnet.
+registration_closed_wait#:#Die Anmeldung ist geschlossen. Die Einteilung wird angezeigt, sobald sie freigegeben ist.
+registration_closed_short#:#Anmeldung geschlossen
+registration_not_open#:#Die Anmeldung ist nicht offen.
+registration_not_member#:#Nur Mitglieder des Kurses können sich anmelden.
+registration_open_no_wishes#:#Anmeldung offen – noch keine Wünsche abgegeben
+wishes_handed_in#:#Wünsche abgegeben
+your_wishes#:#Ihre Wünsche
+priority_n#:#%s. Wunsch
+choose_group_option#:#– bitte wählen –
+no_wish_option#:#– kein weiterer Wunsch –
+places_n#:#%s Plätze
+save_wishes#:#Wünsche speichern
+wishes_saved_info#:#Ihre Wünsche sind gespeichert. Sie können sie bis zum Anmeldeschluss ändern.
+wishes_duplicate#:#Jede Gruppe darf nur einmal gewählt werden.
+withdraw_wishes#:#Anmeldung zurückziehen
+confirm_withdraw_wishes#:#Wollen Sie Ihre Anmeldung wirklich zurückziehen? Ihre Wünsche werden gelöscht.
+wishes_withdrawn#:#Ihre Anmeldung wurde zurückgezogen.
+you_got_priority#:#– das war Ihr %s. Wunsch.
+you_got_not_wished#:#– diese Gruppe war nicht unter Ihren Wünschen.
+permissions_missing_info#:#Die Kursmitglieder haben noch keine Rechte auf dieses Objekt und sehen es deshalb nicht. Mit „Standardrechte setzen“ dürfen Kursmitglieder es sehen und lesen, Tutoren zusätzlich bearbeiten. Feinere Einstellungen sind im Reiter „Rechte“ möglich.
+apply_default_permissions#:#Standardrechte setzen
+permissions_applied#:#Die Standardrechte wurden gesetzt: Kursmitglieder dürfen das Objekt sehen und lesen, Tutoren zusätzlich bearbeiten.
+registration_status#:#Anmeldung

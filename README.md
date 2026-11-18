@@ -54,8 +54,37 @@ Mitglieder eines Kurses in Gruppen einteilen.
    Detailansicht unter den Gruppen („Person verschieben oder entfernen“). Bei
    Methode C wird ein frei gewordener Platz automatisch aus der Warteliste
    besetzt; Dozierende dürfen volle Gruppen überbelegen.
-7. **Methoden D–J** sind in der Auswahl sichtbar, aber noch deaktiviert
+7. **Methode D – Anmeldung mit Prioritäten** (umgesetzt)
+   - Einstellungen: Gruppen oder Themen, Plätze pro Gruppe, Anzahl Wünsche pro
+     Person (1–10), optionaler Anmeldeschluss.
+   - **„Anmeldung öffnen“**: Die Studierenden geben ihre Wünsche in der
+     Reihenfolge ihrer Priorität an (nur der 1. Wunsch ist Pflicht) und können
+     sie bis zum Anmeldeschluss ändern oder zurückziehen. Der Zeitpunkt der
+     Anmeldung spielt keine Rolle.
+   - **„Anmeldung schliessen und zuteilen“**: Ein Algorithmus verteilt die
+     Plätze (`ilGrmPriorityAssigner`, Min-Cost-Flow): zuerst erhalten möglichst
+     viele Personen einen Platz, dann wird die Summe der quadrierten Prioritäten
+     (1, 4, 9, …) minimiert – lieber zwei 2. Wünsche als ein 1. und ein 3. Wunsch.
+     Gleichstände werden zufällig aufgelöst. Die Zuteilung ist beweisbar optimal
+     (geprüft gegen eine vollständige Suche).
+   - **Nachkorrekturmodus** (nur für Dozierende sichtbar): Statistik
+     („1. Wunsch: 8 · 2. Wunsch: 4 · ohne Platz: 1“), Gruppen mit dem Rang des
+     erfüllten Wunsches pro Person, Personen ohne Platz mit ihren Wünschen,
+     Plätze pro Gruppe ändern, Personen verschieben, „Freie Plätze auffüllen“,
+     „Zuteilung neu berechnen“, „Anmeldung wieder öffnen“.
+   - **„Los“** gibt die Einteilung frei; Studierende sehen ihre Gruppe und
+     welchen Wunsch sie erhalten haben.
+8. **Methoden E–J** sind in der Auswahl sichtbar, aber noch deaktiviert
    („in Vorbereitung“).
+
+### Rechte
+
+Beim Anlegen eines Gruppenmanagement-Objekts setzt das Plugin Standardrechte
+für die Kursrollen, sofern eine Rolle noch gar keine Rechte darauf hat
+(Mitglieder: sehen/lesen, Tutoren: zusätzlich bearbeiten, Kursadministratoren:
+alles). Sonst würden Kursmitglieder das Objekt nicht sehen, weil die
+Rollenvorlagen der Kurse den Objekttyp des Plugins nicht kennen. Für ältere
+Objekte zeigt die Inhaltsseite den Knopf „Standardrechte setzen“.
 
 ## Installation
 
@@ -92,18 +121,24 @@ das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.
 | `classes/class.ilGrmManagement.php` | Ein Gruppenmanagement (Methode, Einstellungen, Status) |
 | `classes/class.ilGrmMethods.php` | Register der Methoden a–j (welche umgesetzt sind) |
 | `classes/class.ilGrmRepository.php` | Datenbankzugriff |
-| `classes/class.ilGrmRandomAssigner.php` | Zufallsalgorithmus (Methode A) |
+| `classes/class.ilGrmRandomAssigner.php` | Zufallsalgorithmus (Methoden A, B) |
+| `classes/class.ilGrmEnrollment.php` | Einschreiben, Warteliste, Plätze, Verschieben – gesperrt (`ilAtomQuery`) |
+| `classes/class.ilGrmPriorityAssigner.php` | Zuteilung nach Prioritäten (Methode D) |
+| `classes/class.ilGrmPriorityRegistration.php` | Wünsche speichern/zurückziehen, Anmeldung schliessen – gesperrt (Methode D) |
+| `classes/class.ilGrmPermissions.php` | Standardrechte der Kursrollen |
 | `classes/class.ilGrmCourseContext.php` | Ermittelt übergeordneten Kurs und Mitglieder |
 | `sql/dbupdate.php` | Datenbanktabellen |
 | `lang/` | Sprachdateien Deutsch/Englisch |
-| `tests/` | PHPUnit-Tests für Algorithmus und Einstellungen |
+| `tests/` | PHPUnit-Tests für die Algorithmen |
+| `dev/` | Entwicklung: `grm`-Skript, Test-ILIAS (`dev/test-ilias`) |
 
 ### Status eines Gruppenmanagements
 
 `draft` (noch nicht ausgelost) → `drawn` (ausgelost, nur Dozierende) →
-`published` (nach „Los“, für Studierende sichtbar).
+`published` (nach „Los“, für Studierende sichtbar). Methode D hat zusätzlich
+`open` (Anmeldung offen) zwischen `draft` und `drawn`.
 
-### Weitere Methoden hinzufügen (D–J)
+### Weitere Methoden hinzufügen (E–J)
 
 1. Methode in `ilGrmMethods::IMPLEMENTED` eintragen.
 2. Methodenspezifische Einstellungen im Formular

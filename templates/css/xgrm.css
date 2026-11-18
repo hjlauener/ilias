@@ -6,10 +6,12 @@
     --xgrm-title-color: #b3141b; /* Rot mit genügend Kontrast auf weissem Hintergrund */
 }
 
-/* Bereichstitel (Panels: Übersicht, Gruppen, Ihre Gruppe, …) */
-.il-layout-page-content .panel-heading .panel-title > :is(h1, h2, h3, h4, h5, h6),
+/* Bereichstitel (Panels: Übersicht, Gruppen, Ihre Gruppe, …).
+   ".panel" erhöht die Gewichtung über die ILIAS-Regel
+   ".panel .panel-heading.ilHeader h2", die sonst gewinnt. */
+.il-layout-page-content .panel .panel-heading .panel-title > :is(h1, h2, h3, h4, h5, h6),
 /* Gruppentitel (Unterbereiche) */
-.il-layout-page-content .panel-sub > .panel-heading > :is(h1, h2, h3, h4, h5, h6),
+.il-layout-page-content .panel.panel-sub > .panel-heading > :is(h1, h2, h3, h4, h5, h6),
 /* Namen der Gruppenmanagements in Listen */
 .il-layout-page-content .il-item-title,
 .il-layout-page-content .il-item-title a,

@@ -35,8 +35,8 @@ method_b#:#B – Fixed group size
 method_b_info#:#The lecturer defines how many people a group has (groups of 2, 3, 4, …). The members of the parent course are assigned randomly; the number of groups results from the number of course members. The assignment becomes visible for students after "Go".
 method_c#:#C – First come, first served
 method_c_info#:#Students enroll themselves into a group – first come, first served. The group size defines the number of places; optionally with a waitlist and automatic move-up when someone leaves. After the allocation, the places can be changed for each group individually.
-method_d#:#D – (coming soon)
-method_d_info#:#This method is not available yet.
+method_d#:#D – Registration with priorities
+method_d_info#:#Students hand in their wishes in order of priority (1st wish, 2nd wish, …). After the registration deadline an algorithm distributes the places so that as many people as possible get a place and one of their top wishes; the time of registration does not matter. Then the lecturer can adjust the assignment in the correction mode and publish it with "Go".
 method_e#:#E – (coming soon)
 method_e_info#:#This method is not available yet.
 method_f#:#F – (coming soon)
@@ -55,6 +55,8 @@ mode_groups#:#Fixed number of groups
 mode_groups_info#:#Course members are distributed randomly and as evenly as possible to the given number of groups.
 mode_topics#:#Fixed number of topics
 mode_topics_info#:#One group is formed per topic. Course members are distributed randomly and as evenly as possible to the topics.
+mode_groups_info_d#:#This many groups are formed ("Group 1", "Group 2", …). Students choose the groups they wish.
+mode_topics_info_d#:#One group is formed per topic. Students choose the topics they wish.
 num_groups#:#Number of groups
 num_groups_invalid#:#Please enter a number between 1 and %s.
 topics#:#Topics
@@ -95,12 +97,12 @@ places_free#:#%s of %s places free
 group_full#:#Full
 members#:#Members
 waitlist#:#Waitlist
-waitlist_count#:#%s people waiting
+waitlist_count#:#Waiting: %s
 capacities#:#Change Places per Group
 capacities_info#:#The number of places can be changed for each group individually. If places become free, people on the waitlist move up automatically.
 save_capacities#:#Save Places
 capacities_saved#:#The places have been saved.
-moved_up_from_waitlist#:#%s people moved up from the waitlist.
+moved_up_from_waitlist#:#Moved up from the waitlist: %s.
 move_member#:#Move or Remove a Person
 move_member_info#:#Choose a person and the new group. "No group" removes the person from his/her group.
 move_member_info_c#:#Choose a person and the new group. "No group" removes the person from his/her group or from the waitlist. A place that becomes free is filled from the waitlist automatically. Full groups can be overbooked.
@@ -125,7 +127,6 @@ leave_waitlist#:#Leave Waitlist
 confirm_unenroll#:#Do you really want to leave the group? Your place goes to the next person on the waitlist.
 confirm_leave_waitlist#:#Do you really want to leave the waitlist?
 on_waitlist_for#:#You are on the waitlist for <strong>%s</strong> (position %s).
-enroll_success#:#You are now in: <strong>%s</strong>
 enroll_full#:#The group is already full.
 enroll_already#:#You are already enrolled in a group or on a waitlist.
 enroll_not_member#:#Only members of the course can enroll.
@@ -177,8 +178,8 @@ draw_reset#:#The current draw has been discarded because the assignment settings
 draw_done#:#The course members have been assigned randomly. The assignment is not visible for students yet.
 go_done#:#The group assignment is now visible for the students.
 unpublish_done#:#The assignment has been unpublished.
-latecomers_assigned#:#%s course members have been assigned.
-unassigned_members_info#:#%s course members are not assigned to a group yet (e.g. because they joined after the draw).
+latecomers_assigned#:#Newly assigned course members: %s.
+unassigned_members_info#:#Course members without a group: %s (e.g. because they joined after the draw).
 published_but_inactive#:#The assignment is published, but this group management is not active. Students will only see it once it is activated.
 more_groups_than_members#:#There are more groups than course members – some groups remain empty.
 no_parent_course#:#This object is not located inside a course. The group assignment requires a parent course.
@@ -187,3 +188,82 @@ no_groups_configured#:#No groups or topics are configured.
 assignment_not_visible_yet#:#The group assignment has not been published yet.
 you_are_in_group#:#You are in: <strong>%s</strong>
 you_are_not_assigned#:#You are not assigned to a group.
+places_per_group_info_d#:#Number of places of each group. After opening the registration, the places can be changed for each group individually.
+num_priorities#:#Number of wishes per person
+num_priorities_info#:#This many priorities (1st wish, 2nd wish, …) students can hand in. Only the 1st wish is required. The more wishes are handed in, the more likely everybody gets a place.
+num_priorities_invalid#:#Please enter a number of wishes between 1 and %s (at most as many as there are groups).
+registration_end#:#Registration deadline
+registration_end_info#:#Optional. After this point in time students can no longer change their wishes. Then start the assignment with "Close registration and assign".
+summary_d_groups#:#%s groups with %s places each – %s wishes per person
+summary_d_topics#:#%s topics with %s places each – %s wishes per person
+status_d_draft#:#Registration not opened yet
+status_d_open#:#Registration open
+status_d_drawn#:#Assigned – correction mode (visible for lecturers only)
+status_d_published#:#Published (visible for students)
+open_registration#:#Open Registration
+confirm_open_registration#:#Do you want to open the registration now? The groups are created and students can hand in their wishes.
+registration_opened#:#The registration is open now.
+close_registration#:#Close Registration and Assign
+confirm_close_registration#:#Do you want to close the registration now? Students can then no longer change their wishes, and the places are assigned according to the priorities. The assignment is only visible for students after "Go".
+assignment_done#:#The assignment has been calculated: %s of %s people with wishes got a place.
+recalculate#:#Recalculate Assignment
+confirm_recalculate#:#Do you want to recalculate the assignment? Your corrections will be lost.
+reopen_registration#:#Reopen Registration
+confirm_reopen_registration#:#Do you want to reopen the registration? The calculated assignment and your corrections are discarded; the wishes are kept.
+registration_reopened#:#The registration is open again. The assignment has been discarded.
+fill_free_places#:#Fill Free Places
+confirm_fill_free_places#:#Do you want to distribute the course members without a place (including those without registration) randomly to the free places? Existing assignments remain unchanged.
+free_places_filled#:#Free places assigned: %s.
+still_without_place#:#Still without a place (no free places left): %s.
+go_needs_assignment#:#Please close the registration and calculate the assignment first.
+not_open_yet_d#:#The registration has not been opened yet. "Open Registration" creates the groups and students can hand in their wishes.
+registration_open_info#:#The registration is open: students are handing in their wishes now. "Close Registration and Assign" distributes the places according to the priorities.
+registration_deadline_reached_info#:#The registration deadline has been reached. "Close Registration and Assign" now distributes the places according to the priorities.
+correction_mode_info#:#Correction mode: the assignment is only visible for lecturers. You can move people, change places or fill free places. "Go" publishes the assignment for the students.
+deadline_passed#:#passed
+registrations#:#Registrations
+registrations_count#:#%s of %s course members
+no_registrations_yet#:#No registrations yet.
+not_registered#:#Without registration
+demand#:#Demand per Group
+first_choice_of#:#Chosen as 1st wish by
+wished_by#:#Wished by in total
+assignment_result#:#Result
+stat_priority#:#%s. wish: %s
+stat_not_wished#:#not wished: %s
+stat_without_place#:#without place: %s
+priority_short#:#%s. wish
+not_wished#:#not wished
+no_registration#:#without registration
+without_place#:#Without Place
+wishes_short#:#Wishes: %s
+capacities_info_d#:#The number of places can be changed for each group individually. The assignment takes the places into account the next time it is calculated.
+move_member_info_d#:#Choose a person and the new group. The current group and the wishes are shown next to the name. "No group" removes the person from his/her group. Full groups can be overbooked.
+registration_intro#:#Hand in up to %s wishes in order of your priority. After the registration deadline the places are distributed so that as many people as possible get one of their top wishes. The time of your registration does not matter, and you can change your wishes until the deadline.
+registration_deadline_info#:#Registration deadline: %s.
+registration_deadline_passed#:#The registration deadline (%s) has passed. Your wishes can no longer be changed. The assignment is shown as soon as it has been published.
+registration_deadline_over#:#The registration deadline has passed.
+registration_not_open_yet#:#The registration has not been opened yet.
+registration_closed_wait#:#The registration is closed. The assignment is shown as soon as it has been published.
+registration_closed_short#:#Registration closed
+registration_not_open#:#The registration is not open.
+registration_not_member#:#Only members of the course can register.
+registration_open_no_wishes#:#Registration open – no wishes handed in yet
+wishes_handed_in#:#Wishes handed in
+your_wishes#:#Your Wishes
+priority_n#:#%s. wish
+choose_group_option#:#– please choose –
+no_wish_option#:#– no further wish –
+places_n#:#%s places
+save_wishes#:#Save Wishes
+wishes_saved_info#:#Your wishes are saved. You can change them until the registration deadline.
+wishes_duplicate#:#Each group can only be chosen once.
+withdraw_wishes#:#Withdraw Registration
+confirm_withdraw_wishes#:#Do you really want to withdraw your registration? Your wishes will be deleted.
+wishes_withdrawn#:#Your registration has been withdrawn.
+you_got_priority#:#– that was your %s. wish.
+you_got_not_wished#:#– this group was not among your wishes.
+permissions_missing_info#:#The course members have no permissions on this object yet and therefore do not see it. "Set Default Permissions" lets course members see and read it, tutors also edit it. Finer settings are possible in the "Permissions" tab.
+apply_default_permissions#:#Set Default Permissions
+permissions_applied#:#The default permissions have been set: course members can see and read the object, tutors can also edit it.
+registration_status#:#Registration

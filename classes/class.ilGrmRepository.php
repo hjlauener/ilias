@@ -12,8 +12,16 @@ class ilGrmRepository
     public const TABLE_GROUP = "rep_robj_xgrm_group";
     public const TABLE_ASSIGN = "rep_robj_xgrm_assign";
     public const TABLE_WAIT = "rep_robj_xgrm_wait";
+    public const TABLE_PRIO = "rep_robj_xgrm_prio";
 
-    public const TABLES = [self::TABLE_DATA, self::TABLE_MGMT, self::TABLE_GROUP, self::TABLE_ASSIGN, self::TABLE_WAIT];
+    public const TABLES = [
+        self::TABLE_DATA,
+        self::TABLE_MGMT,
+        self::TABLE_GROUP,
+        self::TABLE_ASSIGN,
+        self::TABLE_WAIT,
+        self::TABLE_PRIO,
+    ];
 
     private ilDBInterface $db;
 
@@ -88,6 +96,8 @@ class ilGrmRepository
             "group_size" => ["integer", $mgmt->getGroupSize()],
             "remainder_mode" => ["text", $mgmt->getRemainderMode()],
             "waitlist" => ["integer", (int) $mgmt->hasWaitlist()],
+            "num_prios" => ["integer", $mgmt->getNumPriorities()],
+            "reg_end" => ["integer", $mgmt->getRegistrationEnd()],
             "created" => ["integer", $mgmt->getCreated()],
             "published" => ["integer", $mgmt->getPublished()],
         ];
@@ -278,8 +288,30 @@ class ilGrmRepository
         return $list;
     }
 
+    /**
+     * Method d: wishes of all persons.
+     *
+     * @return array<int, int[]> user id => group ids, highest priority first
+     */
+    public function getWishes(int $mgmt_id): array
+    {
+        $set = $this->db->query(
+            "SELECT user_id, group_id FROM " . self::TABLE_PRIO .
+            " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer") .
+            " ORDER BY user_id, prio"
+        );
+        $wishes = [];
+        while ($rec = $this->db->fetchAssoc($set)) {
+            $wishes[(int) $rec["user_id"]][] = (int) $rec["group_id"];
+        }
+        return $wishes;
+    }
+
     public function deleteGroupsAndAssignments(int $mgmt_id): void
     {
+        $this->db->manipulate(
+            "DELETE FROM " . self::TABLE_PRIO . " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer")
+        );
         $this->db->manipulate(
             "DELETE FROM " . self::TABLE_WAIT . " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer")
         );
@@ -308,6 +340,8 @@ class ilGrmRepository
         $mgmt->setGroupSize((int) ($rec["group_size"] ?? 3));
         $mgmt->setRemainderMode((string) ($rec["remainder_mode"] ?? ilGrmManagement::REMAINDER_SMALLER));
         $mgmt->setWaitlist((bool) ($rec["waitlist"] ?? true));
+        $mgmt->setNumPriorities((int) ($rec["num_prios"] ?? 3));
+        $mgmt->setRegistrationEnd((int) ($rec["reg_end"] ?? 0));
         $mgmt->setCreated((int) $rec["created"]);
         $mgmt->setPublished($rec["published"] !== null ? (int) $rec["published"] : null);
         return $mgmt;

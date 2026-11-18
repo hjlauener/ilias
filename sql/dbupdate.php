@@ -115,3 +115,33 @@ if (!$ilDB->tableExists('rep_robj_xgrm_wait')) {
     $ilDB->addIndex('rep_robj_xgrm_wait', ['group_id'], 'i1');
 }
 ?>
+<#9>
+<?php
+/** @var ilDBInterface $ilDB */
+// method d: number of priorities a person hands in, registration deadline
+if (!$ilDB->tableColumnExists('rep_robj_xgrm_mgmt', 'num_prios')) {
+    $ilDB->addTableColumn('rep_robj_xgrm_mgmt', 'num_prios', [
+        'type' => 'integer', 'length' => 4, 'notnull' => true, 'default' => 3,
+    ]);
+}
+if (!$ilDB->tableColumnExists('rep_robj_xgrm_mgmt', 'reg_end')) {
+    $ilDB->addTableColumn('rep_robj_xgrm_mgmt', 'reg_end', [
+        'type' => 'integer', 'length' => 4, 'notnull' => true, 'default' => 0,
+    ]);
+}
+?>
+<#10>
+<?php
+/** @var ilDBInterface $ilDB */
+// method d: wishes (priorities) of the persons
+if (!$ilDB->tableExists('rep_robj_xgrm_prio')) {
+    $ilDB->createTable('rep_robj_xgrm_prio', [
+        'mgmt_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'user_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'prio' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'group_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+    ]);
+    $ilDB->addPrimaryKey('rep_robj_xgrm_prio', ['mgmt_id', 'user_id', 'prio']);
+    $ilDB->addIndex('rep_robj_xgrm_prio', ['group_id'], 'i1');
+}
+?>
