@@ -37,10 +37,10 @@ method_c#:#C – First come, first served
 method_c_info#:#Students enroll themselves into a group – first come, first served. The group size defines the number of places; optionally with a waitlist and automatic move-up when someone leaves. After the allocation, the places can be changed for each group individually.
 method_d#:#D – Registration with priorities
 method_d_info#:#Students hand in their wishes in order of priority (1st wish, 2nd wish, …). After the registration deadline an algorithm distributes the places so that as many people as possible get a place and one of their top wishes; the time of registration does not matter. Then the lecturer can adjust the assignment in the correction mode and publish it with "Go".
-method_e#:#E – (coming soon)
-method_e_info#:#This method is not available yet.
-method_f#:#F – (coming soon)
-method_f_info#:#This method is not available yet.
+method_e#:#E – Enrollment with automatically added groups
+method_e_info#:#Students enroll with one click and are placed one after the other into groups of a fixed size. As soon as a group is full, it is closed and a new group is opened automatically. If a place becomes free, it goes to the next person who enrolls.
+method_f#:#F – Fixed groups with swap market
+method_f_info#:#Course members are distributed randomly into a fixed number of groups or topics, as with method A. After "Go", students can post a swap request on the swap market: whoever would like to change to another group (e.g. because of scheduling problems) chooses the groups he/she would like to join. If a person from one of these groups agrees, the two places are swapped. The group sizes stay the same.
 method_g#:#G – (coming soon)
 method_g_info#:#This method is not available yet.
 method_h#:#H – (coming soon)
@@ -267,3 +267,50 @@ permissions_missing_info#:#The course members have no permissions on this object
 apply_default_permissions#:#Set Default Permissions
 permissions_applied#:#The default permissions have been set: course members can see and read the object, tutors can also edit it.
 registration_status#:#Registration
+summary_e#:#Groups with %s places each – a new group as soon as one is full
+places_per_group_info_e#:#This many people are placed into one group. As soon as a group is full, it is closed and a new one is opened automatically.
+confirm_go_e#:#Do you want to open the enrollment now? Students are placed one after the other into groups with %s places each; as soon as a group is full, a new one is opened automatically.
+not_open_yet_e#:#The enrollment has not been opened yet. "Go" creates the first group and students can enroll.
+capacities_info_e#:#The number of places can be changed for each group individually. Whoever enrolls is placed into the first group with a free place; a group with 0 places accepts nobody anymore. New groups get the places from the settings.
+signup_info_e#:#Enroll: you are placed into the next group with a free place (groups with %s places each). If no group has a free place, a new one is opened automatically.
+confirm_unenroll_e#:#Do you really want to leave the group? Your place becomes free and goes to the next person who enrolls.
+group_full_closed#:#Full – enrollment closed
+market_open_setting#:#Swap market open
+market_open_setting_info#:#After "Go", students can swap their places on the swap market. Afterwards, the swap market can be opened or closed at any time in the detail view.
+market_open_short#:#swap market open
+market_closed_short#:#swap market closed
+confirm_go_market#:#Students can then swap their places on the swap market.
+open_market#:#Open Swap Market
+close_market#:#Close Swap Market
+market_opened#:#The swap market is open now.
+market_closed_done#:#The swap market is closed now. Open swap requests are kept.
+market#:#Swap Market
+market_closed#:#The swap market is closed at the moment.
+market_intro#:#Would you like to change to another group (e.g. because of scheduling problems)? Choose the groups you would like to change to. As soon as a person from one of these groups agrees, your places are swapped. If someone from one of these groups would like to change to your group, the places are swapped right away.
+place_swap_request#:#Post Swap Request
+swap_targets#:#I would like to change to
+swap_targets_info#:#You can choose several groups. The places are swapped with the first person who agrees.
+swap_targets_none#:#Please choose at least one other group.
+swap_note#:#Note
+swap_note_info#:#Optional, e.g. the reason for the swap. The people in the chosen groups see the note; your name stays hidden from them.
+swap_matched#:#Someone from the chosen group already wanted to change to your group: the places have been swapped right away.
+your_swap_request#:#Your swap request: from <strong>%s</strong> to <strong>%s</strong>. As soon as someone agrees, the places are swapped.
+withdraw_swap_request#:#Withdraw Swap Request
+confirm_withdraw_swap_request#:#Do you really want to withdraw your swap request?
+swap_request_withdrawn#:#Your swap request has been withdrawn.
+swap_offers#:#Swap offers for your place in %s
+swap_offer_title#:#Place in %s
+swap_since#:#Posted on
+swap_since_short#:#since %s
+no_swap_offers#:#At the moment nobody would like to change to your group.
+accept_swap#:#Accept Swap
+confirm_accept_swap#:#Do you really want to swap? You change to <strong>%s</strong>, the other person takes over your place in <strong>%s</strong>.
+swap_done#:#The places have been swapped.
+swap_gone#:#This swap request is no longer open (withdrawn or already swapped).
+swap_invalid#:#This swap is not possible: you are not in one of the chosen groups.
+swap_not_in_group#:#Only course members with a group can swap.
+market_requests#:#Open Swap Requests
+market_log#:#Completed Swaps
+no_swap_requests#:#No open swap requests.
+no_swaps_yet#:#No swaps yet.
+or_word#:#or

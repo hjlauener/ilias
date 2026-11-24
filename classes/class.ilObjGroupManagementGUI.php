@@ -25,6 +25,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
     private const PARAM_MGMT_ID = "mgmt_id";
     private const PARAM_GROUP_ID = "group_id";
+    private const PARAM_SWAP_REQUEST = "swap_req";
     /** after an action: back to the detail view instead of the overview */
     private const PARAM_RETURN = "grm_return";
     private const RETURN_DETAIL = "detail";
@@ -53,6 +54,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "reopenRegistration",
         "fillFreePlaces",
         "applyDefaultPermissions",
+        "openMarket",
+        "closeMarket",
     ];
 
     /** Commands that need read permission */
@@ -64,11 +67,16 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         "unenrollGroup",
         "saveWishes",
         "withdrawWishes",
+        "enrollNextGroup",
+        "placeSwapRequest",
+        "withdrawSwapRequest",
+        "acceptSwap",
     ];
 
     private ilGrmRepository $grm_repo;
     private ilGrmEnrollment $grm_enrollment;
     private ilGrmPriorityRegistration $grm_registration;
+    private ilGrmSwapMarket $grm_market;
     private ilGrmCourseContext $grm_course;
     private ilGrmPermissions $grm_permissions;
     private Refinery $grm_refinery;
@@ -82,6 +90,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $this->grm_repo = new ilGrmRepository($DIC->database());
         $this->grm_enrollment = new ilGrmEnrollment($DIC->database());
         $this->grm_registration = new ilGrmPriorityRegistration($DIC->database());
+        $this->grm_market = new ilGrmSwapMarket($DIC->database());
         $this->grm_course = new ilGrmCourseContext($DIC->repositoryTree());
         $this->grm_permissions = new ilGrmPermissions(
             $DIC->repositoryTree(),
@@ -347,6 +356,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
         $is_c = $mgmt->getMethod() === ilGrmMethods::METHOD_C;
         $is_d = $mgmt->getMethod() === ilGrmMethods::METHOD_D;
+        $self_enroll = ilGrmMethods::isSelfEnrollment($mgmt->getMethod());
         $uses_draw = ilGrmMethods::usesRandomDraw($mgmt->getMethod());
 
         $f = $this->ui_factory;
@@ -378,14 +388,19 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             if ($is_d) {
                 $modals = array_merge($modals, $this->addRegistrationButtons($mgmt));
             } else {
-                if ($is_c) {
+                if ($self_enroll) {
                     $go_label = $this->txt("go_c");
-                    $go_message = $this->txt("confirm_go_c");
+                    $go_message = $is_c
+                        ? $this->txt("confirm_go_c")
+                        : sprintf($this->txt("confirm_go_e"), $mgmt->getPlacesPerGroup());
                 } else {
                     $go_label = $this->txt("go");
                     $go_message = $this->txt("confirm_go");
                     if (!$mgmt->isDrawn()) {
                         $go_message .= " " . $this->txt("confirm_go_draw_first");
+                    }
+                    if (ilGrmMethods::hasSwapMarket($mgmt->getMethod()) && $mgmt->isMarketOpen()) {
+                        $go_message .= " " . $this->txt("confirm_go_market");
                     }
                 }
                 if (!$mgmt->isActive()) {
@@ -404,6 +419,13 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->toolbar->addComponent(
                 $f->button()->standard($this->txt("unpublish"), "")->withOnClick($modal->getShowSignal())
             );
+            if (ilGrmMethods::hasSwapMarket($mgmt->getMethod())) {
+                // toggle without confirmation, like activate/deactivate
+                $this->toolbar->addComponent($f->button()->standard(
+                    $mgmt->isMarketOpen() ? $this->txt("close_market") : $this->txt("open_market"),
+                    $this->linkTo($mgmt->isMarketOpen() ? "closeMarket" : "openMarket", $mgmt)
+                ));
+            }
         }
 
         $toggle = $this->getActivationToggle($mgmt, true);
@@ -446,7 +468,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->tpl->setOnScreenMessage("info", $this->txt("published_but_inactive"));
         }
 
-        $capacities = $is_c ? $this->grm_repo->getGroupCapacities($mgmt->getId()) : [];
+        $capacities = $self_enroll ? $this->grm_repo->getGroupCapacities($mgmt->getId()) : [];
         $waitlist = $is_c ? $this->grm_repo->getWaitlist($mgmt->getId()) : [];
 
         $properties = $this->getManagementProperties($mgmt);
@@ -457,13 +479,15 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_B && !$mgmt->isDrawn() && $members !== []) {
             $properties[$this->txt("expected_groups")] = (string) $mgmt->getEffectiveNumberOfGroups(count($members));
         }
-        if ($is_c && $mgmt->isDrawn()) {
+        if ($self_enroll && $mgmt->isDrawn()) {
             $properties[$this->txt("enrollments")] = sprintf(
                 $this->txt("places_taken"),
                 count($assignments),
                 array_sum($capacities)
             );
-            $properties[$this->txt("waitlist")] = (string) count($waitlist);
+            if ($is_c) {
+                $properties[$this->txt("waitlist")] = (string) count($waitlist);
+            }
         }
         if ($mgmt->getPublished() !== null) {
             $properties[$this->txt("published_at")] = ilDatePresentation::formatDate(
@@ -480,7 +504,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $form_html = "";
 
         if ($mgmt->isDrawn()) {
-            if ($is_c) {
+            if ($self_enroll) {
                 $components = array_merge(
                     $components,
                     $this->buildEnrollmentPanels($groups, $assignments, $capacities, $waitlist, $members)
@@ -492,18 +516,25 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                     $this->buildGroupPanels($groups, $assignments, null, $members)
                 );
             }
+            if (ilGrmMethods::hasSwapMarket($mgmt->getMethod()) && $mgmt->isPublished()) {
+                $components = array_merge($components, $this->buildMarketPanels($mgmt, $groups, $assignments));
+            }
             if ($groups !== []) {
                 $form_html .= $this->initMoveForm($mgmt, $groups, $assignments, $waitlist, $members)->getHTML();
             }
             $not_in_group = array_values(array_diff($unassigned, array_keys($waitlist)));
             if ($not_in_group !== []) {
                 $components[] = $f->panel()->standard(
-                    ($is_c ? $this->txt("not_enrolled_yet") : $this->txt("not_assigned")) . " (" . count($not_in_group) . ")",
+                    ($self_enroll ? $this->txt("not_enrolled_yet") : $this->txt("not_assigned")) . " (" . count($not_in_group) . ")",
                     $f->listing()->unordered($this->getSortedNames($not_in_group))
                 );
             }
         } else {
-            $components[] = $f->messageBox()->info($is_c ? $this->txt("not_open_yet") : $this->txt("not_drawn_yet"));
+            $components[] = $f->messageBox()->info(match ($mgmt->getMethod()) {
+                ilGrmMethods::METHOD_C => $this->txt("not_open_yet"),
+                ilGrmMethods::METHOD_E => $this->txt("not_open_yet_e"),
+                default => $this->txt("not_drawn_yet"),
+            });
         }
 
         $this->tpl->setContent(
@@ -951,9 +982,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     {
         $form = new ilPropertyFormGUI();
         $form->setTitle($this->txt("capacities"));
-        $form->setDescription($mgmt->getMethod() === ilGrmMethods::METHOD_D
-            ? $this->txt("capacities_info_d")
-            : $this->txt("capacities_info"));
+        $form->setDescription(match ($mgmt->getMethod()) {
+            ilGrmMethods::METHOD_D => $this->txt("capacities_info_d"),
+            ilGrmMethods::METHOD_E => $this->txt("capacities_info_e"),
+            default => $this->txt("capacities_info"),
+        });
         $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
         $form->setFormAction($this->ctrl->getFormAction($this, "saveCapacities"));
         $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
@@ -991,9 +1024,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     ): ilPropertyFormGUI {
         $form = new ilPropertyFormGUI();
         $form->setTitle($this->txt("move_member"));
-        $form->setDescription(ilGrmMethods::hasPlaces($mgmt->getMethod())
-            ? ($mgmt->getMethod() === ilGrmMethods::METHOD_C ? $this->txt("move_member_info_c") : $this->txt("move_member_info_d"))
-            : $this->txt("move_member_info"));
+        $form->setDescription(match ($mgmt->getMethod()) {
+            ilGrmMethods::METHOD_C => $this->txt("move_member_info_c"),
+            ilGrmMethods::METHOD_D => $this->txt("move_member_info_d"),
+            default => $this->txt("move_member_info"),
+        });
         $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
         $form->setFormAction($this->ctrl->getFormAction($this, "moveMember"));
         $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
@@ -1069,6 +1104,10 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         if (!$result["ok"]) {
             $this->tpl->setOnScreenMessage("failure", $this->txt("move_invalid"), true);
             $this->redirectTo("showManagement", $mgmt);
+        }
+        if (ilGrmMethods::hasSwapMarket($mgmt->getMethod())) {
+            // a swap request of the moved person is outdated
+            $this->grm_market->withdrawRequest($mgmt->getId(), $user_id);
         }
 
         $name = $this->getUserName($user_id);
@@ -1167,7 +1206,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 $my_group_id = $this->grm_repo->getAssignments($mgmt->getId())[$this->user->getId()] ?? null;
                 if ($my_group_id !== null && isset($groups[$my_group_id])) {
                     $value = $this->esc($groups[$my_group_id]);
-                } elseif ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
+                } elseif (ilGrmMethods::isSelfEnrollment($mgmt->getMethod())) {
                     $value = $this->getWaitlistText($mgmt, $groups) ?? $this->txt("not_enrolled_yet");
                 } else {
                     $value = $this->txt("you_are_not_assigned");
@@ -1242,6 +1281,10 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->showStudentEnrollment($mgmt);
             return;
         }
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_E) {
+            $this->showStudentSignup($mgmt);
+            return;
+        }
 
         $groups = $this->grm_repo->getGroups($mgmt->getId());
         $assignments = $this->grm_repo->getAssignments($mgmt->getId());
@@ -1275,21 +1318,34 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $components[] = $f->messageBox()->info($this->txt("you_are_not_assigned"));
         }
 
+        // method f: swap market right below the own group
+        $market = [];
+        $form_html = "";
+        $modals = [];
+        if (ilGrmMethods::hasSwapMarket($mgmt->getMethod())) {
+            [$market, $form_html, $modals] = $this->buildStudentMarket($mgmt, $groups, $assignments, $my_group_id);
+        }
+
+        $others = [];
         if ($mgmt->isShowAllGroups()) {
             $other_groups = $groups;
             if ($my_group_id !== null) {
                 unset($other_groups[$my_group_id]);
             }
-            $components = array_merge($components, $this->buildGroupPanels(
+            $others = $this->buildGroupPanels(
                 $other_groups,
                 $assignments,
                 null,
                 null,
                 $my_group_id !== null ? $this->txt("other_groups") : $this->txt("groups")
-            ));
+            );
         }
 
-        $this->tpl->setContent($this->ui_renderer->render($components));
+        $this->tpl->setContent(
+            $this->ui_renderer->render(array_merge($components, $market))
+            . $form_html
+            . $this->ui_renderer->render(array_merge($others, $modals))
+        );
     }
 
     /**
@@ -1576,6 +1632,436 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $this->tpl->setContent($this->ui_renderer->render(array_merge($components, $modals)));
     }
 
+    // ------------------------------------------------------------------
+    // Method e: sign-up, a new group is opened as soon as one is full
+    // ------------------------------------------------------------------
+
+    /**
+     * Method e (student view): own group on top, then all groups with their
+     * places; one button to sign up (no choice of the group).
+     */
+    private function showStudentSignup(ilGrmManagement $mgmt): void
+    {
+        $f = $this->ui_factory;
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        $assignments = $this->grm_repo->getAssignments($mgmt->getId());
+        $capacities = $this->grm_repo->getGroupCapacities($mgmt->getId());
+
+        $my_group_id = $assignments[$this->user->getId()] ?? null;
+        if ($my_group_id !== null && !isset($groups[$my_group_id])) {
+            $my_group_id = null;
+        }
+
+        $components = [];
+        $modals = [];
+        if ($my_group_id !== null) {
+            $components[] = $f->messageBox()->success(
+                sprintf($this->txt("you_are_in_group"), $this->esc($groups[$my_group_id]))
+            );
+            $components = array_merge($components, $this->buildGroupPanels(
+                [$my_group_id => $groups[$my_group_id]],
+                $assignments,
+                null,
+                null,
+                $this->txt("your_group")
+            ));
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_unenroll_e"),
+                "unenrollGroup",
+                $this->txt("unenroll")
+            );
+            $this->toolbar->addComponent(
+                $f->button()->standard($this->txt("unenroll"), "")->withOnClick($modal->getShowSignal())
+            );
+        } else {
+            $components[] = $f->messageBox()->info(sprintf($this->txt("signup_info_e"), $mgmt->getPlacesPerGroup()));
+            $this->toolbar->addComponent(
+                $f->button()->primary($this->txt("enroll"), $this->linkTo("enrollNextGroup", $mgmt))
+            );
+        }
+
+        $panels = [];
+        foreach ($groups as $group_id => $title) {
+            if ($group_id === $my_group_id) {
+                continue;
+            }
+            $member_ids = array_keys(array_filter($assignments, static fn(int $g): bool => $g === $group_id));
+            $capacity = $capacities[$group_id] ?? 0;
+            $free = max(0, $capacity - count($member_ids));
+            $properties = [
+                $this->txt("places") => $free > 0
+                    ? sprintf($this->txt("places_free"), $free, $capacity)
+                    : $this->txt("group_full_closed"),
+            ];
+            if ($mgmt->isShowAllGroups()) {
+                $properties[$this->txt("members")] = $member_ids !== []
+                    ? $f->listing()->unordered($this->getSortedNames($member_ids))
+                    : "<em>" . $this->txt("group_empty") . "</em>";
+            }
+            $panels[] = $f->panel()->sub($this->esc($title), $f->listing()->descriptive($properties));
+        }
+        if ($panels !== []) {
+            $components[] = $f->panel()->standard(
+                $my_group_id !== null ? $this->txt("other_groups") : $this->txt("groups"),
+                $panels
+            );
+        }
+
+        $this->tpl->setContent($this->ui_renderer->render(array_merge($components, $modals)));
+    }
+
+    private function enrollNextGroup(): void
+    {
+        $mgmt = $this->requireEnrollmentOpen();
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_E) {
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+        $user_id = $this->user->getId();
+        if (!in_array($user_id, $this->getCourseMembers(), true)) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("enroll_not_member"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+
+        [$result] = $this->grm_enrollment->enrollIntoNextGroup(
+            $mgmt->getId(),
+            $user_id,
+            $mgmt->getPlacesPerGroup(),
+            $this->getGroupTitlePattern($mgmt)
+        );
+        if ($result !== ilGrmEnrollment::RESULT_ENROLLED) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("enroll_already"), true);
+        }
+        // the page itself shows the group
+        $this->redirectTo("showStudentManagement", $mgmt);
+    }
+
+    /**
+     * Title pattern ("Gruppe %s") of the groups that are opened automatically
+     * when a student enrolls: the groups are named like the first group, which
+     * was created with "Los" in the language of the lecturer. So all groups
+     * get titles in the same language, whoever opens them.
+     */
+    private function getGroupTitlePattern(ilGrmManagement $mgmt): string
+    {
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        $first = reset($groups);
+        if (is_string($first) && preg_match('/^(.*\D)1$/u', $first, $matches)) {
+            return str_replace("%", "%%", $matches[1]) . "%s";
+        }
+        return $this->txt("group_title_n");
+    }
+
+    // ------------------------------------------------------------------
+    // Method f: swap market
+    // ------------------------------------------------------------------
+
+    /**
+     * Method f (student view, below the groups): own swap request or the form
+     * to hand one in, and the requests of people who want into the own group.
+     *
+     * @param array<int, string> $groups
+     * @param array<int, int>    $assignments
+     * @return array{0: Component[], 1: string, 2: Interruptive[]} [components, form html, modals]
+     */
+    private function buildStudentMarket(ilGrmManagement $mgmt, array $groups, array $assignments, ?int $my_group_id): array
+    {
+        $f = $this->ui_factory;
+        if ($my_group_id === null) {
+            return [[], "", []];
+        }
+        if (!$mgmt->isMarketOpen()) {
+            return [[$f->messageBox()->info($this->txt("market_closed"))], "", []];
+        }
+
+        $user_id = $this->user->getId();
+        $open = $this->grm_market->getOpenRequests($mgmt->getId(), $assignments);
+        $components = [];
+        $modals = [];
+        $form_html = "";
+
+        $own = null;
+        foreach ($open as $request) {
+            if ($request["user_id"] === $user_id) {
+                $own = $request;
+            }
+        }
+
+        // offers: people who want into my group
+        $offer_panels = [];
+        foreach ($open as $request) {
+            if ($request["user_id"] === $user_id || !in_array($my_group_id, $request["targets"], true)) {
+                continue;
+            }
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                sprintf(
+                    $this->txt("confirm_accept_swap"),
+                    $this->esc($groups[$request["from_group"]] ?? "?"),
+                    $this->esc($groups[$my_group_id])
+                ),
+                "acceptSwap",
+                $this->txt("accept_swap"),
+                false,
+                [self::PARAM_SWAP_REQUEST => $request["id"]]
+            );
+            $properties = [
+                $this->txt("swap_since") => $this->formatTime($request["created"]),
+            ];
+            if ($request["note"] !== "") {
+                $properties[$this->txt("swap_note")] = $this->esc($request["note"]);
+            }
+            $offer_panels[] = $f->panel()->sub(
+                sprintf($this->txt("swap_offer_title"), $this->esc($groups[$request["from_group"]] ?? "?")),
+                [
+                    $f->listing()->descriptive($properties),
+                    $f->button()->primary($this->txt("accept_swap"), "")->withOnClick($modal->getShowSignal()),
+                ]
+            );
+        }
+
+        if ($own !== null) {
+            $modals[] = $modal = $this->buildConfirmModal(
+                $mgmt,
+                $this->txt("confirm_withdraw_swap_request"),
+                "withdrawSwapRequest",
+                $this->txt("withdraw_swap_request")
+            );
+            $components[] = $f->messageBox()->info(sprintf(
+                $this->txt("your_swap_request"),
+                $this->esc($groups[$own["from_group"]] ?? "?"),
+                $this->esc($this->formatGroupList($own["targets"], $groups))
+            ))->withButtons([
+                $f->button()->standard($this->txt("withdraw_swap_request"), "")->withOnClick($modal->getShowSignal()),
+            ]);
+        } elseif (count($groups) > 1) {
+            $form_html = $this->initSwapRequestForm($mgmt, $groups, $my_group_id)->getHTML();
+        }
+
+        $components[] = $f->panel()->standard(
+            sprintf($this->txt("swap_offers"), $this->esc($groups[$my_group_id])),
+            $offer_panels !== []
+                ? $offer_panels
+                : $f->listing()->unordered(["<em>" . $this->txt("no_swap_offers") . "</em>"])
+        );
+
+        return [$components, $form_html, $modals];
+    }
+
+    /**
+     * @param array<int, string> $groups
+     */
+    private function initSwapRequestForm(ilGrmManagement $mgmt, array $groups, int $my_group_id): ilPropertyFormGUI
+    {
+        $form = new ilPropertyFormGUI();
+        $form->setTitle($this->txt("place_swap_request"));
+        $form->setDescription($this->txt("market_intro"));
+        $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
+        $form->setFormAction($this->ctrl->getFormAction($this, "placeSwapRequest"));
+        $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
+
+        $targets = new ilCheckboxGroupInputGUI($this->txt("swap_targets"), "swap_targets");
+        $targets->setRequired(true);
+        $targets->setInfo($this->txt("swap_targets_info"));
+        foreach ($groups as $group_id => $title) {
+            if ($group_id !== $my_group_id) {
+                $targets->addOption(new ilCheckboxOption($this->esc($title), (string) $group_id));
+            }
+        }
+        $form->addItem($targets);
+
+        $note = new ilTextInputGUI($this->txt("swap_note"), "swap_note");
+        $note->setMaxLength(255);
+        $note->setInfo($this->txt("swap_note_info"));
+        $form->addItem($note);
+
+        $form->addCommandButton("placeSwapRequest", $this->txt("place_swap_request"));
+        return $form;
+    }
+
+    private function placeSwapRequest(): void
+    {
+        $mgmt = $this->requireSwapMarket();
+        $user_id = $this->user->getId();
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        $my_group_id = $this->grm_repo->getAssignments($mgmt->getId())[$user_id] ?? null;
+        if ($my_group_id === null || !in_array($user_id, $this->getCourseMembers(), true)) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("swap_not_in_group"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+
+        $form = $this->initSwapRequestForm($mgmt, $groups, $my_group_id);
+        if (!$form->checkInput()) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("swap_targets_none"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+        $targets = array_map("intval", (array) $form->getInput("swap_targets"));
+        $note = (string) $form->getInput("swap_note");
+
+        [$result] = $this->grm_market->placeRequest($mgmt->getId(), $user_id, $targets, $note, time());
+        switch ($result) {
+            case ilGrmSwapMarket::RESULT_SWAPPED:
+                // the page shows the new group right below
+                $this->tpl->setOnScreenMessage("success", $this->txt("swap_matched"), true);
+                break;
+            case ilGrmSwapMarket::RESULT_PLACED:
+                // no message: the page shows the request with its targets
+                break;
+            case ilGrmSwapMarket::RESULT_NOT_IN_GROUP:
+                $this->tpl->setOnScreenMessage("failure", $this->txt("swap_not_in_group"), true);
+                break;
+            default:
+                $this->tpl->setOnScreenMessage("failure", $this->txt("swap_targets_none"), true);
+        }
+        $this->redirectTo("showStudentManagement", $mgmt);
+    }
+
+    private function withdrawSwapRequest(): void
+    {
+        $mgmt = $this->requireSwapMarket();
+        $this->grm_market->withdrawRequest($mgmt->getId(), $this->user->getId());
+        $this->tpl->setOnScreenMessage("success", $this->txt("swap_request_withdrawn"), true);
+        $this->redirectTo("showStudentManagement", $mgmt);
+    }
+
+    private function acceptSwap(): void
+    {
+        $mgmt = $this->requireSwapMarket();
+        $user_id = $this->user->getId();
+        if (!in_array($user_id, $this->getCourseMembers(), true)) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("swap_not_in_group"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+        $request_id = $this->grm_query->has(self::PARAM_SWAP_REQUEST)
+            ? $this->grm_query->retrieve(self::PARAM_SWAP_REQUEST, $this->grm_refinery->kindlyTo()->int())
+            : 0;
+
+        [$result] = $this->grm_market->acceptRequest($mgmt->getId(), $user_id, $request_id, time());
+        switch ($result) {
+            case ilGrmSwapMarket::RESULT_SWAPPED:
+                // the page shows the new group right below
+                $this->tpl->setOnScreenMessage("success", $this->txt("swap_done"), true);
+                break;
+            case ilGrmSwapMarket::RESULT_GONE:
+                $this->tpl->setOnScreenMessage("failure", $this->txt("swap_gone"), true);
+                break;
+            default:
+                $this->tpl->setOnScreenMessage("failure", $this->txt("swap_invalid"), true);
+        }
+        $this->redirectTo("showStudentManagement", $mgmt);
+    }
+
+    private function openMarket(): void
+    {
+        $this->setMarketOpen(true);
+    }
+
+    private function closeMarket(): void
+    {
+        $this->setMarketOpen(false);
+    }
+
+    /**
+     * Method f (lecturer): opens or closes the swap market immediately. Open
+     * requests are kept while the market is closed.
+     */
+    private function setMarketOpen(bool $open): void
+    {
+        $mgmt = $this->requireManagement();
+        if (ilGrmMethods::hasSwapMarket($mgmt->getMethod()) && $mgmt->isMarketOpen() !== $open) {
+            $mgmt->setMarketOpen($open);
+            $this->grm_repo->saveManagement($mgmt);
+            $this->tpl->setOnScreenMessage("success", $open ? $this->txt("market_opened") : $this->txt("market_closed_done"), true);
+        }
+        $this->redirectTo("showManagement", $mgmt);
+    }
+
+    /**
+     * Method f: the management must be active and published, the market open.
+     */
+    private function requireSwapMarket(): ilGrmManagement
+    {
+        $mgmt = $this->requireStudentManagement();
+        if (!ilGrmMethods::hasSwapMarket($mgmt->getMethod())
+            || !$mgmt->isActive()
+            || !$mgmt->isPublished()
+            || !$mgmt->isMarketOpen()) {
+            $this->tpl->setOnScreenMessage("failure", $this->txt("market_closed"), true);
+            $this->redirectTo("showStudentManagement", $mgmt);
+        }
+        return $mgmt;
+    }
+
+    /**
+     * Method f (lecturer view): open swap requests and completed swaps.
+     *
+     * @param array<int, string> $groups
+     * @param array<int, int>    $assignments
+     * @return Component[]
+     */
+    private function buildMarketPanels(ilGrmManagement $mgmt, array $groups, array $assignments): array
+    {
+        $f = $this->ui_factory;
+
+        $requests = [];
+        foreach ($this->grm_market->getOpenRequests($mgmt->getId(), $assignments) as $request) {
+            $line = $this->getUserName($request["user_id"]) . ": "
+                . $this->esc($groups[$request["from_group"]] ?? "?") . " → "
+                . $this->esc($this->formatGroupList($request["targets"], $groups))
+                . " · " . sprintf($this->txt("swap_since_short"), $this->formatTime($request["created"]));
+            if ($request["note"] !== "") {
+                $line .= " · " . $this->esc($request["note"]);
+            }
+            $requests[] = $line;
+        }
+
+        $log = [];
+        foreach ($this->grm_market->getLog($mgmt->getId()) as $swap) {
+            $log[] = $this->formatTime($swap["created"]) . ": "
+                . $this->getUserName($swap["user_a"]) . " (" . $this->esc($groups[$swap["group_a"]] ?? "?")
+                . " → " . $this->esc($groups[$swap["group_b"]] ?? "?") . ") ⇄ "
+                . $this->getUserName($swap["user_b"]) . " (" . $this->esc($groups[$swap["group_b"]] ?? "?")
+                . " → " . $this->esc($groups[$swap["group_a"]] ?? "?") . ")";
+        }
+
+        $empty = fn(string $key) => $f->listing()->unordered(["<em>" . $this->txt($key) . "</em>"]);
+        return [
+            $f->panel()->standard(
+                $this->txt("market"),
+                [
+                    $f->panel()->sub(
+                        $this->txt("market_requests") . " (" . count($requests) . ")",
+                        $requests !== [] ? $f->listing()->unordered($requests) : $empty("no_swap_requests")
+                    ),
+                    $f->panel()->sub(
+                        $this->txt("market_log") . " (" . count($log) . ")",
+                        $log !== [] ? $f->listing()->unordered($log) : $empty("no_swaps_yet")
+                    ),
+                ]
+            ),
+        ];
+    }
+
+    /**
+     * "Gruppe 2 oder Gruppe 3" (raw, not escaped)
+     *
+     * @param int[]              $group_ids
+     * @param array<int, string> $groups
+     */
+    private function formatGroupList(array $group_ids, array $groups): string
+    {
+        $titles = [];
+        foreach ($group_ids as $group_id) {
+            $titles[] = $groups[$group_id] ?? "?";
+        }
+        return implode(" " . $this->txt("or_word") . " ", $titles);
+    }
+
+    private function formatTime(int $timestamp): string
+    {
+        return ilDatePresentation::formatDate(new ilDateTime($timestamp, IL_CAL_UNIX));
+    }
+
     /**
      * "On the waitlist for group X (position n)" or null if not waiting.
      *
@@ -1647,7 +2133,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private function requireEnrollmentOpen(): ilGrmManagement
     {
         $mgmt = $this->requireManagement();
-        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_C || !$mgmt->isActive() || !$mgmt->isPublished()) {
+        if (!ilGrmMethods::isSelfEnrollment($mgmt->getMethod()) || !$mgmt->isActive() || !$mgmt->isPublished()) {
             $this->tpl->setOnScreenMessage("failure", $this->txt("enroll_closed"), true);
             $this->ctrl->redirect($this, "showStudentView");
         }
@@ -1729,6 +2215,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 "d_topics" => implode("\n", $mgmt->getTopics()),
                 "d_places" => (string) $mgmt->getPlacesPerGroup(),
                 "d_num_prios" => (string) $mgmt->getNumPriorities(),
+                "e_places" => (string) $mgmt->getPlacesPerGroup(),
+                "f_assign_mode" => $mgmt->getAssignMode(),
+                "f_num_groups" => (string) $mgmt->getNumGroups(),
+                "f_topics" => implode("\n", $mgmt->getTopics()),
+                "f_market_open" => $mgmt->isMarketOpen(),
                 "show_all" => $mgmt->isShowAllGroups(),
             ]);
             $deadline = $form->getItemByPostVar("d_reg_end");
@@ -1863,6 +2354,18 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 return $this->buildEnrollmentInputs();
             case ilGrmMethods::METHOD_D:
                 return $this->buildPriorityInputs();
+            case ilGrmMethods::METHOD_E:
+                $places = new ilNumberInputGUI($this->txt("places_per_group"), "e_places");
+                $places->setRequired(true);
+                $places->setDecimals(0);
+                $places->setMinValue(1);
+                $places->setMaxValue(ilGrmManagement::MAX_GROUP_SIZE);
+                $places->setSize(4);
+                $places->setValue("4");
+                $places->setInfo($this->txt("places_per_group_info_e"));
+                return [$places];
+            case ilGrmMethods::METHOD_F:
+                return [$this->buildAssignModeInput("f_")];
             default:
                 return [];
         }
@@ -1903,6 +2406,12 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
      */
     private function buildMethodExtraInputs(string $method): array
     {
+        if ($method === ilGrmMethods::METHOD_F) {
+            $market = new ilCheckboxInputGUI($this->txt("market_open_setting"), "f_market_open");
+            $market->setInfo($this->txt("market_open_setting_info"));
+            $market->setChecked(true);
+            return [$market];
+        }
         if ($method === ilGrmMethods::METHOD_D) {
             $deadline = new ilDateTimeInputGUI($this->txt("registration_end"), "d_reg_end");
             $deadline->setShowTime(true);
@@ -2065,6 +2574,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
             $mgmt->setWaitlist((bool) $form->getInput("c_waitlist"));
         }
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_F) {
+            $mgmt->setMarketOpen((bool) $form->getInput("f_market_open"));
+        }
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_D) {
             $deadline = $form->getItemByPostVar("d_reg_end");
             $date = $deadline instanceof ilDateTimeInputGUI ? $deadline->getDate() : null;
@@ -2077,6 +2589,20 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
 
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_D) {
             return $this->applyPriorityForm($form, $mgmt);
+        }
+
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_E) {
+            $places = (int) $form->getInput("e_places");
+            if ($places < 1 || $places > ilGrmManagement::MAX_GROUP_SIZE) {
+                $this->setFormAlert($form, "e_places", sprintf($this->txt("places_invalid"), ilGrmManagement::MAX_GROUP_SIZE));
+                return false;
+            }
+            $mgmt->setPlacesPerGroup($places);
+            return true;
+        }
+
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_F) {
+            return $this->applyAssignModeForm($form, $mgmt, "f_");
         }
 
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
@@ -2110,20 +2636,29 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             return true;
         }
 
-        $mode = (string) $form->getInput("assign_mode");
-        $mgmt->setAssignMode($mode);
+        return $this->applyAssignModeForm($form, $mgmt, "");
+    }
+
+    /**
+     * Methods a and f: fixed number of groups or topics.
+     *
+     * @param string $prefix prefix of the post variables (see buildAssignModeInput())
+     */
+    private function applyAssignModeForm(ilPropertyFormGUI $form, ilGrmManagement $mgmt, string $prefix): bool
+    {
+        $mgmt->setAssignMode((string) $form->getInput($prefix . "assign_mode"));
 
         if ($mgmt->getAssignMode() === ilGrmManagement::MODE_TOPICS) {
-            $topics = ilGrmManagement::parseTopics((string) $form->getInput("topics"));
+            $topics = ilGrmManagement::parseTopics((string) $form->getInput($prefix . "topics"));
             if ($topics === [] || count($topics) > ilGrmManagement::MAX_GROUPS) {
-                $this->setFormAlert($form, "topics", sprintf($this->txt("topics_invalid"), ilGrmManagement::MAX_GROUPS));
+                $this->setFormAlert($form, $prefix . "topics", sprintf($this->txt("topics_invalid"), ilGrmManagement::MAX_GROUPS));
                 return false;
             }
             $mgmt->setTopics($topics);
         } else {
-            $num = (int) $form->getInput("num_groups");
+            $num = (int) $form->getInput($prefix . "num_groups");
             if ($num < 1 || $num > ilGrmManagement::MAX_GROUPS) {
-                $this->setFormAlert($form, "num_groups", sprintf($this->txt("num_groups_invalid"), ilGrmManagement::MAX_GROUPS));
+                $this->setFormAlert($form, $prefix . "num_groups", sprintf($this->txt("num_groups_invalid"), ilGrmManagement::MAX_GROUPS));
                 return false;
             }
             $mgmt->setNumGroups($num);
@@ -2260,13 +2795,13 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->redirectTo("showManagement", $mgmt);
         }
 
-        $is_c = $mgmt->getMethod() === ilGrmMethods::METHOD_C;
+        $self_enroll = ilGrmMethods::isSelfEnrollment($mgmt->getMethod());
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_D && !$mgmt->isDrawn()) {
             $this->tpl->setOnScreenMessage("failure", $this->txt("go_needs_assignment"), true);
             $this->redirectTo("showManagement", $mgmt);
         }
         if (!$mgmt->isDrawn()) {
-            $prepared = $is_c ? $this->createEnrollmentGroups($mgmt) : $this->performDraw($mgmt);
+            $prepared = $self_enroll ? $this->createEnrollmentGroups($mgmt) : $this->performDraw($mgmt);
             if (!$prepared) {
                 $this->redirectTo("showManagement", $mgmt);
             }
@@ -2279,7 +2814,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->grm_repo->activate($mgmt);
         }
 
-        $this->tpl->setOnScreenMessage("success", $is_c ? $this->txt("go_done_c") : $this->txt("go_done"), true);
+        $this->tpl->setOnScreenMessage("success", $self_enroll ? $this->txt("go_done_c") : $this->txt("go_done"), true);
         $this->redirectTo("showManagement", $mgmt);
     }
 
@@ -2475,7 +3010,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
-     * Method c: creates the (empty) groups with the configured number of places.
+     * Methods c and e: creates the (empty) groups with the configured number
+     * of places. Method e starts with one group, more follow automatically.
      */
     private function createEnrollmentGroups(ilGrmManagement $mgmt): bool
     {
@@ -2483,7 +3019,9 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $this->tpl->setOnScreenMessage("failure", $this->txt("no_parent_course"), true);
             return false;
         }
-        $titles = $mgmt->buildGroupTitles(fn(int $n): string => sprintf($this->txt("group_title_n"), $n));
+        $titles = $mgmt->getMethod() === ilGrmMethods::METHOD_E
+            ? [sprintf($this->txt("group_title_n"), 1)]
+            : $mgmt->buildGroupTitles(fn(int $n): string => sprintf($this->txt("group_title_n"), $n));
         if ($titles === []) {
             $this->tpl->setOnScreenMessage("failure", $this->txt("no_groups_configured"), true);
             return false;
@@ -2667,15 +3205,22 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         string $message,
         string $cmd,
         string $action_label,
-        bool $return_to_detail = false
+        bool $return_to_detail = false,
+        array $extra_params = []
     ): Interruptive {
         $this->ctrl->setParameter($this, self::PARAM_MGMT_ID, $mgmt->getId());
         if ($return_to_detail) {
             $this->ctrl->setParameter($this, self::PARAM_RETURN, self::RETURN_DETAIL);
         }
+        foreach ($extra_params as $name => $value) {
+            $this->ctrl->setParameter($this, $name, $value);
+        }
         $form_action = $this->ctrl->getFormAction($this, $cmd);
         $this->ctrl->clearParameterByClass(self::class, self::PARAM_MGMT_ID);
         $this->ctrl->clearParameterByClass(self::class, self::PARAM_RETURN);
+        foreach (array_keys($extra_params) as $name) {
+            $this->ctrl->clearParameterByClass(self::class, $name);
+        }
 
         return $this->ui_factory->modal()->interruptive(
             $this->txt("confirm"),
@@ -2746,6 +3291,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     {
         switch ($mgmt->getMethod()) {
             case ilGrmMethods::METHOD_C:
+            case ilGrmMethods::METHOD_E:
                 return $this->txt("status_c_" . $mgmt->getStatus());
             case ilGrmMethods::METHOD_D:
                 return $this->txt("status_d_" . $mgmt->getStatus());
@@ -2767,6 +3313,15 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
             return sprintf($this->txt("summary_c"), $mgmt->getNumGroups(), $mgmt->getPlacesPerGroup())
                 . " – " . ($mgmt->hasWaitlist() ? $this->txt("waitlist_on") : $this->txt("waitlist_off"));
+        }
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_E) {
+            return sprintf($this->txt("summary_e"), $mgmt->getPlacesPerGroup());
+        }
+        if ($mgmt->getMethod() === ilGrmMethods::METHOD_F) {
+            $groups = $mgmt->usesTopics()
+                ? sprintf($this->txt("summary_topics"), count($mgmt->getTopics()))
+                : sprintf($this->txt("summary_groups"), $mgmt->getNumGroups());
+            return $groups . " – " . ($mgmt->isMarketOpen() ? $this->txt("market_open_short") : $this->txt("market_closed_short"));
         }
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_B) {
             return sprintf($this->txt("summary_group_size"), $mgmt->getGroupSize())

@@ -24,8 +24,8 @@ diff <(cut -d'#' -f1 lang/ilias_de.lang) <(cut -d'#' -f1 lang/ilias_en.lang)
 - Alle Rückfragen (Löschen, Aktivieren, Auslosen, Los, …) als Overlay wie im
   ILIAS-Kern (Interruptive Modal) über `buildConfirmModal()` in
   `ilObjGroupManagementGUI` – keine eigenen Bestätigungsseiten.
-- Ausnahme: Aktivieren/Deaktivieren ist ein Umschalter ohne Rückfrage
-  (`getActivationToggle()`), die Aktion wird sofort ausgeführt.
+- Ausnahme: Aktivieren/Deaktivieren (und Tauschbörse öffnen/schliessen) ist ein
+  Umschalter ohne Rückfrage (`getActivationToggle()`), die Aktion wird sofort ausgeführt.
 - Mehrere Gruppenmanagements können gleichzeitig aktiv sein (pro
   Gruppenmanagement genau eine Methode a–j). Studierende sehen zuerst eine
   Übersicht der aktiven, die eigene Gruppe steht in der Detailansicht abgehoben zuoberst.
@@ -40,6 +40,12 @@ diff <(cut -d'#' -f1 lang/ilias_de.lang) <(cut -d'#' -f1 lang/ilias_en.lang)
 - Methode D (Prioritäten): Wünsche nur über `ilGrmPriorityRegistration`
   (gesperrt, prüft offene Anmeldung und Anmeldeschluss), Zuteilung mit
   `ilGrmPriorityAssigner` (optimal; vor Änderungen gegen die Brute-Force-Prüfung testen).
+- Methode E (automatisch neue Gruppen): Einschreiben nur über
+  `ilGrmEnrollment::enrollIntoNextGroup()` (gesperrt inkl. Gruppen-Sequenz); neue
+  Gruppen werden wie die erste Gruppe benannt.
+- Methode F (Tauschbörse): Tauschwünsche und Tausch nur über `ilGrmSwapMarket`
+  (gesperrt); Studierende sehen bei Angeboten keine Namen. Öffnen/Schliessen der
+  Tauschbörse ist ein Umschalter ohne Rückfrage.
 - Neue Objekte: Standardrechte der Kursrollen über `ilGrmPermissions` (siehe README).
 - Das Plugin leitet Aufrufe über `ilRepositoryGUI` auf `ilObjPluginDispatchGUI`
   um (`executeCommand()`), sonst gibt ILIAS 11 die Seite doppelt aus und bricht ab.

@@ -13,7 +13,7 @@ declare(strict_types=1);
 $id = "xgrm";
 
 // code version; must be changed for all code changes
-$version = "0.4.0";
+$version = "0.5.0";
 
 // ilias min and max version; must always reflect the versions that should
 // run with the plugin

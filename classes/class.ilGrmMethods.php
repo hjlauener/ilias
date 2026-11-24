@@ -22,15 +22,31 @@ final class ilGrmMethods
     /** Registration with priorities, assignment by algorithm, corrections by the lecturer */
     public const METHOD_D = "d";
 
+    /** Sign-up in groups of a fixed size; a new group is opened as soon as one is full */
+    public const METHOD_E = "e";
+
+    /** Fixed groups with a swap market (students swap places by mutual agreement) */
+    public const METHOD_F = "f";
+
     public const ALL = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
-    public const IMPLEMENTED = [self::METHOD_A, self::METHOD_B, self::METHOD_C, self::METHOD_D];
+    public const IMPLEMENTED = [
+        self::METHOD_A,
+        self::METHOD_B,
+        self::METHOD_C,
+        self::METHOD_D,
+        self::METHOD_E,
+        self::METHOD_F,
+    ];
 
     /** Methods where the lecturer distributes the people randomly (draw) */
-    public const RANDOM_DRAW = [self::METHOD_A, self::METHOD_B];
+    public const RANDOM_DRAW = [self::METHOD_A, self::METHOD_B, self::METHOD_F];
+
+    /** Methods where students enroll themselves after "Los" */
+    public const SELF_ENROLLMENT = [self::METHOD_C, self::METHOD_E];
 
     /** Methods with a limited number of places per group */
-    public const WITH_PLACES = [self::METHOD_C, self::METHOD_D];
+    public const WITH_PLACES = [self::METHOD_C, self::METHOD_D, self::METHOD_E];
 
     public static function usesRandomDraw(string $method): bool
     {
@@ -40,6 +56,17 @@ final class ilGrmMethods
     public static function hasPlaces(string $method): bool
     {
         return in_array($method, self::WITH_PLACES, true);
+    }
+
+    public static function isSelfEnrollment(string $method): bool
+    {
+        return in_array($method, self::SELF_ENROLLMENT, true);
+    }
+
+    /** Method f: students can swap their places */
+    public static function hasSwapMarket(string $method): bool
+    {
+        return $method === self::METHOD_F;
     }
 
     public static function isValid(string $method): bool

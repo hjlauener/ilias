@@ -37,10 +37,10 @@ method_c#:#C – First Come – First Serve
 method_c_info#:#Die Studierenden schreiben sich selbst in eine Gruppe ein – wer zuerst kommt, erhält den Platz. Die Gruppengrösse bestimmt die Anzahl Plätze; optional mit Warteliste und automatischem Nachrücken bei Abmeldung. Nach der Vergabe können die Plätze pro Gruppe einzeln geändert werden.
 method_d#:#D – Anmeldung mit Prioritäten
 method_d_info#:#Die Studierenden geben ihre Wünsche in der Reihenfolge ihrer Priorität an (1. Wunsch, 2. Wunsch, …). Nach Anmeldeschluss verteilt ein Algorithmus die Plätze so, dass möglichst viele Personen einen Platz und einen ihrer vorderen Wünsche erhalten; der Zeitpunkt der Anmeldung spielt keine Rolle. Danach können die Dozierenden die Einteilung im Nachkorrekturmodus anpassen und mit „Los“ freigeben.
-method_e#:#E – (in Vorbereitung)
-method_e_info#:#Diese Methode ist noch nicht verfügbar.
-method_f#:#F – (in Vorbereitung)
-method_f_info#:#Diese Methode ist noch nicht verfügbar.
+method_e#:#E – Einschreibung mit automatisch neuen Gruppen
+method_e_info#:#Die Studierenden schreiben sich mit einem Klick ein und werden der Reihe nach in Gruppen fester Grösse eingeteilt. Ist eine Gruppe voll, wird sie geschlossen und automatisch eine neue Gruppe eröffnet. Wird ein Platz frei, erhält ihn die nächste Person, die sich einschreibt.
+method_f#:#F – Feste Gruppen mit Tauschbörse
+method_f_info#:#Die Kursmitglieder werden wie bei Methode A zufällig auf eine feste Anzahl Gruppen oder Themen verteilt. Nach „Los“ können die Studierenden auf der Tauschbörse einen Tauschwunsch eintragen: Wer in eine andere Gruppe wechseln möchte (z. B. wegen zeitlicher Probleme), wählt die gewünschten Gruppen. Sagt eine Person aus einer dieser Gruppen zu, werden die beiden Plätze getauscht. Die Gruppengrössen bleiben dabei gleich.
 method_g#:#G – (in Vorbereitung)
 method_g_info#:#Diese Methode ist noch nicht verfügbar.
 method_h#:#H – (in Vorbereitung)
@@ -267,3 +267,50 @@ permissions_missing_info#:#Die Kursmitglieder haben noch keine Rechte auf dieses
 apply_default_permissions#:#Standardrechte setzen
 permissions_applied#:#Die Standardrechte wurden gesetzt: Kursmitglieder dürfen das Objekt sehen und lesen, Tutoren zusätzlich bearbeiten.
 registration_status#:#Anmeldung
+summary_e#:#Gruppen mit je %s Plätzen – neue Gruppe, sobald eine voll ist
+places_per_group_info_e#:#So viele Personen kommen in eine Gruppe. Ist eine Gruppe voll, wird sie geschlossen und automatisch eine neue eröffnet.
+confirm_go_e#:#Soll die Einschreibung jetzt geöffnet werden? Die Studierenden werden der Reihe nach in Gruppen mit je %s Plätzen eingeteilt; ist eine Gruppe voll, wird automatisch eine neue eröffnet.
+not_open_yet_e#:#Die Einschreibung ist noch nicht geöffnet. Mit „Los“ wird die erste Gruppe erstellt und die Studierenden können sich einschreiben.
+capacities_info_e#:#Die Anzahl Plätze kann für jede Gruppe einzeln geändert werden. Wer sich einschreibt, kommt in die erste Gruppe mit freiem Platz; eine Gruppe mit 0 Plätzen nimmt niemanden mehr auf. Neu eröffnete Gruppen erhalten die Plätze aus den Einstellungen.
+signup_info_e#:#Schreiben Sie sich ein: Sie kommen in die nächste Gruppe mit freiem Platz (Gruppen mit je %s Plätzen). Ist keine Gruppe frei, wird automatisch eine neue eröffnet.
+confirm_unenroll_e#:#Wollen Sie sich wirklich aus der Gruppe abmelden? Ihr Platz wird frei und geht an die nächste Person, die sich einschreibt.
+group_full_closed#:#Voll – Einschreibung geschlossen
+market_open_setting#:#Tauschbörse offen
+market_open_setting_info#:#Nach „Los“ können die Studierenden ihre Plätze über die Tauschbörse tauschen. Die Tauschbörse kann danach in der Detailansicht jederzeit geöffnet oder geschlossen werden.
+market_open_short#:#Tauschbörse offen
+market_closed_short#:#Tauschbörse geschlossen
+confirm_go_market#:#Danach können die Studierenden ihre Plätze über die Tauschbörse tauschen.
+open_market#:#Tauschbörse öffnen
+close_market#:#Tauschbörse schliessen
+market_opened#:#Die Tauschbörse ist jetzt offen.
+market_closed_done#:#Die Tauschbörse ist jetzt geschlossen. Offene Tauschwünsche bleiben erhalten.
+market#:#Tauschbörse
+market_closed#:#Die Tauschbörse ist zurzeit geschlossen.
+market_intro#:#Möchten Sie in eine andere Gruppe wechseln (z. B. wegen zeitlicher Probleme)? Wählen Sie die Gruppen, in die Sie wechseln möchten. Sobald eine Person aus einer dieser Gruppen zusagt, werden Ihre Plätze getauscht. Möchte jemand aus einer dieser Gruppen in Ihre Gruppe wechseln, wird sofort getauscht.
+place_swap_request#:#Tauschwunsch eintragen
+swap_targets#:#Ich möchte wechseln in
+swap_targets_info#:#Sie können mehrere Gruppen wählen. Getauscht wird mit der ersten Person, die zusagt.
+swap_targets_none#:#Bitte mindestens eine andere Gruppe wählen.
+swap_note#:#Bemerkung
+swap_note_info#:#Optional, z. B. der Grund für den Tausch. Die Bemerkung sehen die Personen in den gewünschten Gruppen; Ihr Name bleibt für sie verborgen.
+swap_matched#:#Jemand aus der gewünschten Gruppe wollte bereits in Ihre Gruppe wechseln: Die Plätze wurden sofort getauscht.
+your_swap_request#:#Ihr Tauschwunsch: von <strong>%s</strong> nach <strong>%s</strong>. Sobald jemand zusagt, werden die Plätze getauscht.
+withdraw_swap_request#:#Tauschwunsch zurückziehen
+confirm_withdraw_swap_request#:#Wollen Sie Ihren Tauschwunsch wirklich zurückziehen?
+swap_request_withdrawn#:#Ihr Tauschwunsch wurde zurückgezogen.
+swap_offers#:#Tauschangebote für Ihren Platz in %s
+swap_offer_title#:#Platz in %s
+swap_since#:#Eingetragen am
+swap_since_short#:#seit %s
+no_swap_offers#:#Zurzeit möchte niemand in Ihre Gruppe wechseln.
+accept_swap#:#Tausch annehmen
+confirm_accept_swap#:#Wollen Sie wirklich tauschen? Sie wechseln in <strong>%s</strong>, die andere Person übernimmt Ihren Platz in <strong>%s</strong>.
+swap_done#:#Die Plätze wurden getauscht.
+swap_gone#:#Dieser Tauschwunsch ist nicht mehr offen (zurückgezogen oder bereits getauscht).
+swap_invalid#:#Dieser Tausch ist nicht möglich: Sie sind nicht in einer der gewünschten Gruppen.
+swap_not_in_group#:#Nur Kursmitglieder mit einer Gruppe können tauschen.
+market_requests#:#Offene Tauschwünsche
+market_log#:#Durchgeführte Tauschvorgänge
+no_swap_requests#:#Keine offenen Tauschwünsche.
+no_swaps_yet#:#Noch keine Tauschvorgänge.
+or_word#:#oder

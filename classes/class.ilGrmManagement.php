@@ -58,6 +58,8 @@ class ilGrmManagement
     private int $num_priorities = 3;
     /** Method d: registration deadline (unix time), 0 = none */
     private int $registration_end = 0;
+    /** Method f: students can hand in and accept swap requests */
+    private bool $market_open = true;
     private int $created = 0;
     private ?int $published = null;
 
@@ -245,6 +247,16 @@ class ilGrmManagement
         $this->num_priorities = max(1, min(self::MAX_PRIORITIES, $num_priorities));
     }
 
+    public function isMarketOpen(): bool
+    {
+        return $this->market_open;
+    }
+
+    public function setMarketOpen(bool $market_open): void
+    {
+        $this->market_open = $market_open;
+    }
+
     public function getRegistrationEnd(): int
     {
         return $this->registration_end;
@@ -304,11 +316,11 @@ class ilGrmManagement
     }
 
     /**
-     * Methods a and d with topics: one group per topic.
+     * Methods a, d and f with topics: one group per topic.
      */
     public function usesTopics(): bool
     {
-        return in_array($this->method, [ilGrmMethods::METHOD_A, ilGrmMethods::METHOD_D], true)
+        return in_array($this->method, [ilGrmMethods::METHOD_A, ilGrmMethods::METHOD_D, ilGrmMethods::METHOD_F], true)
             && $this->assign_mode === self::MODE_TOPICS;
     }
 

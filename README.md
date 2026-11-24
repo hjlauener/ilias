@@ -74,8 +74,39 @@ Mitglieder eines Kurses in Gruppen einteilen.
      „Zuteilung neu berechnen“, „Anmeldung wieder öffnen“.
    - **„Los“** gibt die Einteilung frei; Studierende sehen ihre Gruppe und
      welchen Wunsch sie erhalten haben.
-8. **Methoden E–J** sind in der Auswahl sichtbar, aber noch deaktiviert
-   („in Vorbereitung“).
+8. **Methode E – Einschreibung mit automatisch neuen Gruppen** (umgesetzt)
+   - Die Dozierenden legen die Gruppengrösse (= Plätze pro Gruppe) fest.
+   - **„Los – Einschreibung öffnen“** erstellt „Gruppe 1“. Die Studierenden
+     schreiben sich mit einem Klick ein (ohne Gruppenwahl) und kommen in die
+     erste Gruppe mit freiem Platz.
+   - Ist eine Gruppe voll, ist sie für die Einschreibung geschlossen; die nächste
+     Person eröffnet automatisch eine neue Gruppe („Gruppe 2“, „Gruppe 3“ …,
+     benannt wie die erste Gruppe, also in der Sprache der Dozierenden).
+   - Meldet sich jemand ab, wird der Platz frei und geht an die nächste Person,
+     die sich einschreibt. Die Plätze können pro Gruppe geändert werden (0 Plätze =
+     Gruppe nimmt niemanden mehr auf).
+   - Einschreiben und das Eröffnen neuer Gruppen laufen gesperrt (`ilAtomQuery`).
+9. **Methode F – Feste Gruppen mit Tauschbörse** (umgesetzt)
+   - Einteilung wie Methode A (Anzahl Gruppen oder Themen, Zufallszuteilung,
+     „Los“).
+   - Nach „Los“ ist die **Tauschbörse** offen (Einstellung „Tauschbörse offen“,
+     danach in der Detailansicht mit „Tauschbörse schliessen/öffnen“ umschaltbar):
+     - Studentin A (Gruppe 1) trägt einen **Tauschwunsch** ein: eine oder mehrere
+       Gruppen, in die sie wechseln möchte, optional mit Bemerkung (z. B. „Montags
+       habe ich keine Zeit“).
+     - Die Personen der gewünschten Gruppen sehen das Angebot („Platz in
+       Gruppe 1“, ohne Namen) und können es mit **„Tausch annehmen“** zusagen:
+       Die beiden Plätze werden getauscht, die Gruppengrössen bleiben gleich.
+     - Passen zwei Tauschwünsche zusammen (1 → 2 und 2 → 1), wird sofort
+       automatisch getauscht.
+     - Tauschwünsche können zurückgezogen werden; wer verschoben wird, verliert
+       seinen Tauschwunsch.
+   - Die Dozierenden sehen die offenen Tauschwünsche (mit Namen) und ein
+     Protokoll der durchgeführten Tauschvorgänge.
+   - Alle Tauschvorgänge laufen gesperrt (`ilGrmSwapMarket`, `ilAtomQuery`):
+     Ein Angebot kann nicht zweimal angenommen werden.
+10. **Methoden G–J** sind in der Auswahl sichtbar, aber noch deaktiviert
+    („in Vorbereitung“).
 
 ### Rechte
 
@@ -121,8 +152,9 @@ das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.
 | `classes/class.ilGrmManagement.php` | Ein Gruppenmanagement (Methode, Einstellungen, Status) |
 | `classes/class.ilGrmMethods.php` | Register der Methoden a–j (welche umgesetzt sind) |
 | `classes/class.ilGrmRepository.php` | Datenbankzugriff |
-| `classes/class.ilGrmRandomAssigner.php` | Zufallsalgorithmus (Methoden A, B) |
-| `classes/class.ilGrmEnrollment.php` | Einschreiben, Warteliste, Plätze, Verschieben – gesperrt (`ilAtomQuery`) |
+| `classes/class.ilGrmRandomAssigner.php` | Zufallsalgorithmus (Methoden A, B, F) |
+| `classes/class.ilGrmEnrollment.php` | Einschreiben (C, E), Warteliste, Plätze, Verschieben – gesperrt (`ilAtomQuery`) |
+| `classes/class.ilGrmSwapMarket.php` | Tauschbörse: Tauschwünsche, Tausch, Protokoll – gesperrt (Methode F) |
 | `classes/class.ilGrmPriorityAssigner.php` | Zuteilung nach Prioritäten (Methode D) |
 | `classes/class.ilGrmPriorityRegistration.php` | Wünsche speichern/zurückziehen, Anmeldung schliessen – gesperrt (Methode D) |
 | `classes/class.ilGrmPermissions.php` | Standardrechte der Kursrollen |
@@ -136,9 +168,10 @@ das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.
 
 `draft` (noch nicht ausgelost) → `drawn` (ausgelost, nur Dozierende) →
 `published` (nach „Los“, für Studierende sichtbar). Methode D hat zusätzlich
-`open` (Anmeldung offen) zwischen `draft` und `drawn`.
+`open` (Anmeldung offen) zwischen `draft` und `drawn`. Bei den Methoden C und E
+bedeutet `published` „Einschreibung offen“.
 
-### Weitere Methoden hinzufügen (E–J)
+### Weitere Methoden hinzufügen (G–J)
 
 1. Methode in `ilGrmMethods::IMPLEMENTED` eintragen.
 2. Methodenspezifische Einstellungen im Formular

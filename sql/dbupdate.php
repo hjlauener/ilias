@@ -145,3 +145,51 @@ if (!$ilDB->tableExists('rep_robj_xgrm_prio')) {
     $ilDB->addIndex('rep_robj_xgrm_prio', ['group_id'], 'i1');
 }
 ?>
+<#11>
+<?php
+/** @var ilDBInterface $ilDB */
+// method f: swap market can be closed by the lecturer
+if (!$ilDB->tableColumnExists('rep_robj_xgrm_mgmt', 'market_open')) {
+    $ilDB->addTableColumn('rep_robj_xgrm_mgmt', 'market_open', [
+        'type' => 'integer', 'length' => 1, 'notnull' => true, 'default' => 1,
+    ]);
+}
+?>
+<#12>
+<?php
+/** @var ilDBInterface $ilDB */
+// method f: open swap requests (at most one per person and management)
+if (!$ilDB->tableExists('rep_robj_xgrm_swreq')) {
+    $ilDB->createTable('rep_robj_xgrm_swreq', [
+        'id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'mgmt_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'user_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'from_group' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'targets' => ['type' => 'text', 'length' => 1000, 'notnull' => false],
+        'note' => ['type' => 'text', 'length' => 255, 'notnull' => false],
+        'created' => ['type' => 'integer', 'length' => 4, 'notnull' => true, 'default' => 0],
+    ]);
+    $ilDB->addPrimaryKey('rep_robj_xgrm_swreq', ['id']);
+    $ilDB->createSequence('rep_robj_xgrm_swreq');
+    $ilDB->addIndex('rep_robj_xgrm_swreq', ['mgmt_id', 'user_id'], 'i1');
+}
+?>
+<#13>
+<?php
+/** @var ilDBInterface $ilDB */
+// method f: completed swaps
+if (!$ilDB->tableExists('rep_robj_xgrm_swlog')) {
+    $ilDB->createTable('rep_robj_xgrm_swlog', [
+        'id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'mgmt_id' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'user_a' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'group_a' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'user_b' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'group_b' => ['type' => 'integer', 'length' => 4, 'notnull' => true],
+        'created' => ['type' => 'integer', 'length' => 4, 'notnull' => true, 'default' => 0],
+    ]);
+    $ilDB->addPrimaryKey('rep_robj_xgrm_swlog', ['id']);
+    $ilDB->createSequence('rep_robj_xgrm_swlog');
+    $ilDB->addIndex('rep_robj_xgrm_swlog', ['mgmt_id'], 'i1');
+}
+?>

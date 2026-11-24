@@ -13,6 +13,8 @@ class ilGrmRepository
     public const TABLE_ASSIGN = "rep_robj_xgrm_assign";
     public const TABLE_WAIT = "rep_robj_xgrm_wait";
     public const TABLE_PRIO = "rep_robj_xgrm_prio";
+    public const TABLE_SWAP_REQ = "rep_robj_xgrm_swreq";
+    public const TABLE_SWAP_LOG = "rep_robj_xgrm_swlog";
 
     public const TABLES = [
         self::TABLE_DATA,
@@ -21,6 +23,8 @@ class ilGrmRepository
         self::TABLE_ASSIGN,
         self::TABLE_WAIT,
         self::TABLE_PRIO,
+        self::TABLE_SWAP_REQ,
+        self::TABLE_SWAP_LOG,
     ];
 
     private ilDBInterface $db;
@@ -98,6 +102,7 @@ class ilGrmRepository
             "waitlist" => ["integer", (int) $mgmt->hasWaitlist()],
             "num_prios" => ["integer", $mgmt->getNumPriorities()],
             "reg_end" => ["integer", $mgmt->getRegistrationEnd()],
+            "market_open" => ["integer", (int) $mgmt->isMarketOpen()],
             "created" => ["integer", $mgmt->getCreated()],
             "published" => ["integer", $mgmt->getPublished()],
         ];
@@ -309,9 +314,11 @@ class ilGrmRepository
 
     public function deleteGroupsAndAssignments(int $mgmt_id): void
     {
-        $this->db->manipulate(
-            "DELETE FROM " . self::TABLE_PRIO . " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer")
-        );
+        foreach ([self::TABLE_SWAP_REQ, self::TABLE_SWAP_LOG, self::TABLE_PRIO] as $table) {
+            $this->db->manipulate(
+                "DELETE FROM " . $table . " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer")
+            );
+        }
         $this->db->manipulate(
             "DELETE FROM " . self::TABLE_WAIT . " WHERE mgmt_id = " . $this->db->quote($mgmt_id, "integer")
         );
@@ -342,6 +349,7 @@ class ilGrmRepository
         $mgmt->setWaitlist((bool) ($rec["waitlist"] ?? true));
         $mgmt->setNumPriorities((int) ($rec["num_prios"] ?? 3));
         $mgmt->setRegistrationEnd((int) ($rec["reg_end"] ?? 0));
+        $mgmt->setMarketOpen((bool) ($rec["market_open"] ?? true));
         $mgmt->setCreated((int) $rec["created"]);
         $mgmt->setPublished($rec["published"] !== null ? (int) $rec["published"] : null);
         return $mgmt;

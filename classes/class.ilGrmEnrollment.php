@@ -65,6 +65,47 @@ class ilGrmEnrollment
     }
 
     /**
+     * Method e: puts the user into the first group with a free place. If all
+     * groups are full, a new group with the given number of places is opened.
+     *
+     * @param string $title_pattern sprintf pattern for the title of a new group, e.g. "Gruppe %s"
+     * @return array{0: string, 1: int} [RESULT_ENROLLED or RESULT_ALREADY, group id]
+     */
+    public function enrollIntoNextGroup(int $mgmt_id, int $user_id, int $capacity, string $title_pattern): array
+    {
+        $result = [self::RESULT_ALREADY, 0];
+        $this->atomic(function (ilDBInterface $db) use ($mgmt_id, $user_id, $capacity, $title_pattern, &$result): void {
+            if ($this->isEnrolledOrWaiting($db, $mgmt_id, $user_id)) {
+                $result = [self::RESULT_ALREADY, 0];
+                return;
+            }
+
+            $capacities = $this->fetchCapacities($db, $mgmt_id);
+            foreach ($capacities as $group_id => $places) {
+                if ($this->countMembers($db, $mgmt_id, $group_id) < $places) {
+                    $this->insertMember($db, $mgmt_id, $group_id, $user_id);
+                    $result = [self::RESULT_ENROLLED, $group_id];
+                    return;
+                }
+            }
+
+            // all groups are full: open a new one
+            $position = count($capacities);
+            $group_id = $db->nextId(ilGrmRepository::TABLE_GROUP);
+            $db->insert(ilGrmRepository::TABLE_GROUP, [
+                "id" => ["integer", $group_id],
+                "mgmt_id" => ["integer", $mgmt_id],
+                "title" => ["text", sprintf($title_pattern, $position + 1)],
+                "position" => ["integer", $position],
+                "capacity" => ["integer", max(1, $capacity)],
+            ]);
+            $this->insertMember($db, $mgmt_id, $group_id, $user_id);
+            $result = [self::RESULT_ENROLLED, $group_id];
+        }, true);
+        return $result;
+    }
+
+    /**
      * Removes a user from his/her group or from the waitlist. A place that
      * becomes free goes to the first person on the waitlist of that group.
      *
@@ -343,10 +384,13 @@ class ilGrmEnrollment
         ]);
     }
 
-    private function atomic(callable $queries): void
+    /**
+     * @param bool $with_group_sequence also lock the id sequence of the groups (needed to create groups)
+     */
+    private function atomic(callable $queries, bool $with_group_sequence = false): void
     {
         $atom = $this->db->buildAtomQuery();
-        $atom->addTableLock(ilGrmRepository::TABLE_GROUP);
+        $atom->addTableLock(ilGrmRepository::TABLE_GROUP)->lockSequence($with_group_sequence);
         $atom->addTableLock(ilGrmRepository::TABLE_ASSIGN);
         $atom->addTableLock(ilGrmRepository::TABLE_WAIT);
         $atom->addQueryCallable(static function (ilDBInterface $db) use ($queries): void {
