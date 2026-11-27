@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * Method f: swap market for fixed groups.
+ * Methods b and f: swap market for fixed groups.
  *
  * A person (A, in group 1) hands in a swap request: "I would like to change to
  * group 2 (or 3)". A person B in one of these groups can accept it; then A and
@@ -35,16 +35,16 @@ class ilGrmSwapMarket
      * swapped right away (oldest matching request first).
      *
      * @param int[] $target_group_ids groups the person would like to change to
-     * @return array{0: string, 1: int} [RESULT_PLACED | RESULT_SWAPPED | RESULT_NOT_IN_GROUP | RESULT_INVALID,
-     *                                   new group id if swapped]
+     * @return array{0: string, 1: int, 2: int, 3: int} [RESULT_PLACED | RESULT_SWAPPED | RESULT_NOT_IN_GROUP |
+     *         RESULT_INVALID, new group of the person, other person and his/her new group (if swapped)]
      */
     public function placeRequest(int $mgmt_id, int $user_id, array $target_group_ids, string $note, int $now): array
     {
-        $result = [self::RESULT_INVALID, 0];
+        $result = [self::RESULT_INVALID, 0, 0, 0];
         $this->atomic(function (ilDBInterface $db) use ($mgmt_id, $user_id, $target_group_ids, $note, $now, &$result): void {
             $from_group = $this->currentGroup($db, $mgmt_id, $user_id);
             if ($from_group === null) {
-                $result = [self::RESULT_NOT_IN_GROUP, 0];
+                $result = [self::RESULT_NOT_IN_GROUP, 0, 0, 0];
                 return;
             }
             $targets = array_values(array_diff(
@@ -52,7 +52,7 @@ class ilGrmSwapMarket
                 [$from_group]
             ));
             if ($targets === []) {
-                $result = [self::RESULT_INVALID, 0];
+                $result = [self::RESULT_INVALID, 0, 0, 0];
                 return;
             }
 
@@ -64,7 +64,7 @@ class ilGrmSwapMarket
                     && in_array($from_group, $request["targets"], true)
                     && $this->currentGroup($db, $mgmt_id, $request["user_id"]) === $request["from_group"]) {
                     $this->swap($db, $mgmt_id, $user_id, $from_group, $request["user_id"], $request["from_group"], $now);
-                    $result = [self::RESULT_SWAPPED, $request["from_group"]];
+                    $result = [self::RESULT_SWAPPED, $request["from_group"], $request["user_id"], $from_group];
                     return;
                 }
             }
@@ -78,7 +78,7 @@ class ilGrmSwapMarket
                 "note" => ["text", mb_substr(trim($note), 0, 255)],
                 "created" => ["integer", $now],
             ]);
-            $result = [self::RESULT_PLACED, 0];
+            $result = [self::RESULT_PLACED, 0, 0, 0];
         });
         return $result;
     }
@@ -93,11 +93,12 @@ class ilGrmSwapMarket
     /**
      * A person in one of the target groups accepts a request: the two swap places.
      *
-     * @return array{0: string, 1: int} [RESULT_SWAPPED | RESULT_GONE | RESULT_INVALID, new group id if swapped]
+     * @return array{0: string, 1: int, 2: int, 3: int} [RESULT_SWAPPED | RESULT_GONE | RESULT_INVALID,
+     *         new group of the acceptor, requester and his/her new group (if swapped)]
      */
     public function acceptRequest(int $mgmt_id, int $acceptor_id, int $request_id, int $now): array
     {
-        $result = [self::RESULT_GONE, 0];
+        $result = [self::RESULT_GONE, 0, 0, 0];
         $this->atomic(function (ilDBInterface $db) use ($mgmt_id, $acceptor_id, $request_id, $now, &$result): void {
             $request = null;
             foreach ($this->fetchRequests($db, $mgmt_id) as $candidate) {
@@ -107,27 +108,27 @@ class ilGrmSwapMarket
                 }
             }
             if ($request === null) {
-                $result = [self::RESULT_GONE, 0];
+                $result = [self::RESULT_GONE, 0, 0, 0];
                 return;
             }
             if ($request["user_id"] === $acceptor_id) {
-                $result = [self::RESULT_INVALID, 0];
+                $result = [self::RESULT_INVALID, 0, 0, 0];
                 return;
             }
             if ($this->currentGroup($db, $mgmt_id, $request["user_id"]) !== $request["from_group"]) {
                 // the requester has been moved meanwhile: the request is outdated
                 $this->deleteRequestsOf($db, $mgmt_id, [$request["user_id"]]);
-                $result = [self::RESULT_GONE, 0];
+                $result = [self::RESULT_GONE, 0, 0, 0];
                 return;
             }
             $acceptor_group = $this->currentGroup($db, $mgmt_id, $acceptor_id);
             if ($acceptor_group === null || !in_array($acceptor_group, $request["targets"], true)) {
-                $result = [self::RESULT_INVALID, 0];
+                $result = [self::RESULT_INVALID, 0, 0, 0];
                 return;
             }
 
             $this->swap($db, $mgmt_id, $request["user_id"], $request["from_group"], $acceptor_id, $acceptor_group, $now);
-            $result = [self::RESULT_SWAPPED, $request["from_group"]];
+            $result = [self::RESULT_SWAPPED, $request["from_group"], $request["user_id"], $acceptor_group];
         });
         return $result;
     }

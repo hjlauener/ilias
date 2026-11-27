@@ -77,6 +77,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private ilGrmEnrollment $grm_enrollment;
     private ilGrmPriorityRegistration $grm_registration;
     private ilGrmSwapMarket $grm_market;
+    private ilGrmSwapNotification $grm_notification;
     private ilGrmCourseContext $grm_course;
     private ilGrmPermissions $grm_permissions;
     private Refinery $grm_refinery;
@@ -91,6 +92,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $this->grm_enrollment = new ilGrmEnrollment($DIC->database());
         $this->grm_registration = new ilGrmPriorityRegistration($DIC->database());
         $this->grm_market = new ilGrmSwapMarket($DIC->database());
+        $this->grm_notification = new ilGrmSwapNotification(ilGroupManagementPlugin::LANG_PREFIX);
         $this->grm_course = new ilGrmCourseContext($DIC->repositoryTree());
         $this->grm_permissions = new ilGrmPermissions(
             $DIC->repositoryTree(),
@@ -1318,7 +1320,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             $components[] = $f->messageBox()->info($this->txt("you_are_not_assigned"));
         }
 
-        // method f: swap market right below the own group
+        // methods b and f: swap market right below the own group
         $market = [];
         $form_html = "";
         $modals = [];
@@ -1753,11 +1755,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     // ------------------------------------------------------------------
-    // Method f: swap market
+    // Methods b and f: swap market
     // ------------------------------------------------------------------
 
     /**
-     * Method f (student view, below the groups): own swap request or the form
+     * Methods b and f (student view, below the own group): own swap request or the form
      * to hand one in, and the requests of people who want into the own group.
      *
      * @param array<int, string> $groups
@@ -1771,7 +1773,10 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             return [[], "", []];
         }
         if (!$mgmt->isMarketOpen()) {
-            return [[$f->messageBox()->info($this->txt("market_closed"))], "", []];
+            // method b: the market is optional, nothing to say if it is closed
+            return $mgmt->getMethod() === ilGrmMethods::METHOD_F
+                ? [[$f->messageBox()->info($this->txt("market_closed"))], "", []]
+                : [[], "", []];
         }
 
         $user_id = $this->user->getId();
@@ -1797,6 +1802,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 $mgmt,
                 sprintf(
                     $this->txt("confirm_accept_swap"),
+                    $this->getFullName($request["user_id"]),
                     $this->esc($groups[$request["from_group"]] ?? "?"),
                     $this->esc($groups[$my_group_id])
                 ),
@@ -1806,6 +1812,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 [self::PARAM_SWAP_REQUEST => $request["id"]]
             );
             $properties = [
+                $this->txt("swap_offered_by") => $this->getUserName($request["user_id"]),
                 $this->txt("swap_since") => $this->formatTime($request["created"]),
             ];
             if ($request["note"] !== "") {
@@ -1898,11 +1905,21 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         $targets = array_map("intval", (array) $form->getInput("swap_targets"));
         $note = (string) $form->getInput("swap_note");
 
-        [$result] = $this->grm_market->placeRequest($mgmt->getId(), $user_id, $targets, $note, time());
+        [$result, , $partner_id, $partner_group_id] = $this->grm_market->placeRequest(
+            $mgmt->getId(),
+            $user_id,
+            $targets,
+            $note,
+            time()
+        );
         switch ($result) {
             case ilGrmSwapMarket::RESULT_SWAPPED:
                 // the page shows the new group right below
-                $this->tpl->setOnScreenMessage("success", $this->txt("swap_matched"), true);
+                $message = sprintf($this->txt("swap_matched"), $this->getFullName($partner_id));
+                if ($this->notifySwapPartner($mgmt, $partner_id, $partner_group_id, $user_id)) {
+                    $message .= " " . $this->txt("swap_partner_notified");
+                }
+                $this->tpl->setOnScreenMessage("success", $message, true);
                 break;
             case ilGrmSwapMarket::RESULT_PLACED:
                 // no message: the page shows the request with its targets
@@ -1936,11 +1953,20 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
             ? $this->grm_query->retrieve(self::PARAM_SWAP_REQUEST, $this->grm_refinery->kindlyTo()->int())
             : 0;
 
-        [$result] = $this->grm_market->acceptRequest($mgmt->getId(), $user_id, $request_id, time());
+        [$result, , $partner_id, $partner_group_id] = $this->grm_market->acceptRequest(
+            $mgmt->getId(),
+            $user_id,
+            $request_id,
+            time()
+        );
         switch ($result) {
             case ilGrmSwapMarket::RESULT_SWAPPED:
                 // the page shows the new group right below
-                $this->tpl->setOnScreenMessage("success", $this->txt("swap_done"), true);
+                $message = sprintf($this->txt("swap_done"), $this->getFullName($partner_id));
+                if ($this->notifySwapPartner($mgmt, $partner_id, $partner_group_id, $user_id)) {
+                    $message .= " " . $this->txt("swap_partner_notified");
+                }
+                $this->tpl->setOnScreenMessage("success", $message, true);
                 break;
             case ilGrmSwapMarket::RESULT_GONE:
                 $this->tpl->setOnScreenMessage("failure", $this->txt("swap_gone"), true);
@@ -1962,7 +1988,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
-     * Method f (lecturer): opens or closes the swap market immediately. Open
+     * Methods b and f (lecturer): opens or closes the swap market immediately. Open
      * requests are kept while the market is closed.
      */
     private function setMarketOpen(bool $open): void
@@ -1977,7 +2003,31 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
-     * Method f: the management must be active and published, the market open.
+     * After a swap: the other person did not see it happen and gets a mail
+     * (in his/her language). A failing mail must not undo the swap.
+     *
+     * @return bool true if the mail has been handed over to ILIAS
+     */
+    private function notifySwapPartner(ilGrmManagement $mgmt, int $partner_id, int $partner_group_id, int $actor_id): bool
+    {
+        $groups = $this->grm_repo->getGroups($mgmt->getId());
+        try {
+            return $this->grm_notification->sendSwapped(
+                $partner_id,
+                $actor_id,
+                $groups[$partner_group_id] ?? "",
+                $mgmt->getTitle(),
+                $this->object->getTitle(),
+                $this->object->getRefId()
+            );
+        } catch (Throwable $e) {
+            ilLoggerFactory::getRootLogger()->warning("GroupManagement: swap mail failed: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Methods b and f: the management must be active and published, the market open.
      */
     private function requireSwapMarket(): ilGrmManagement
     {
@@ -1993,7 +2043,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     }
 
     /**
-     * Method f (lecturer view): open swap requests and completed swaps.
+     * Methods b and f (lecturer view): open swap requests and completed swaps.
      *
      * @param array<int, string> $groups
      * @param array<int, int>    $assignments
@@ -2022,6 +2072,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 . " → " . $this->esc($groups[$swap["group_b"]] ?? "?") . ") ⇄ "
                 . $this->getUserName($swap["user_b"]) . " (" . $this->esc($groups[$swap["group_b"]] ?? "?")
                 . " → " . $this->esc($groups[$swap["group_a"]] ?? "?") . ")";
+        }
+
+        // method b: the market is optional, show it only if it is or was in use
+        if ($mgmt->getMethod() !== ilGrmMethods::METHOD_F && !$mgmt->isMarketOpen() && $requests === [] && $log === []) {
+            return [];
         }
 
         $empty = fn(string $key) => $f->listing()->unordered(["<em>" . $this->txt($key) . "</em>"]);
@@ -2220,6 +2275,7 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
                 "f_num_groups" => (string) $mgmt->getNumGroups(),
                 "f_topics" => implode("\n", $mgmt->getTopics()),
                 "f_market_open" => $mgmt->isMarketOpen(),
+                "b_market_open" => $mgmt->isMarketOpen(),
                 "show_all" => $mgmt->isShowAllGroups(),
             ]);
             $deadline = $form->getItemByPostVar("d_reg_end");
@@ -2406,10 +2462,11 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
      */
     private function buildMethodExtraInputs(string $method): array
     {
-        if ($method === ilGrmMethods::METHOD_F) {
-            $market = new ilCheckboxInputGUI($this->txt("market_open_setting"), "f_market_open");
+        if (ilGrmMethods::hasSwapMarket($method)) {
+            $market = new ilCheckboxInputGUI($this->txt("market_open_setting"), $method . "_market_open");
             $market->setInfo($this->txt("market_open_setting_info"));
-            $market->setChecked(true);
+            // part of method f, optional for method b
+            $market->setChecked($method === ilGrmMethods::METHOD_F);
             return [$market];
         }
         if ($method === ilGrmMethods::METHOD_D) {
@@ -2574,8 +2631,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_C) {
             $mgmt->setWaitlist((bool) $form->getInput("c_waitlist"));
         }
-        if ($mgmt->getMethod() === ilGrmMethods::METHOD_F) {
-            $mgmt->setMarketOpen((bool) $form->getInput("f_market_open"));
+        if (ilGrmMethods::hasSwapMarket($mgmt->getMethod())) {
+            $mgmt->setMarketOpen((bool) $form->getInput($mgmt->getMethod() . "_market_open"));
         }
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_D) {
             $deadline = $form->getItemByPostVar("d_reg_end");
@@ -3325,7 +3382,8 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
         }
         if ($mgmt->getMethod() === ilGrmMethods::METHOD_B) {
             return sprintf($this->txt("summary_group_size"), $mgmt->getGroupSize())
-                . " – " . $this->txt("remainder_" . $mgmt->getRemainderMode() . "_short");
+                . " – " . $this->txt("remainder_" . $mgmt->getRemainderMode() . "_short")
+                . ($mgmt->isMarketOpen() ? " – " . $this->txt("market_open_short") : "");
         }
         if ($mgmt->usesTopics()) {
             return sprintf($this->txt("summary_topics"), count($mgmt->getTopics()));
@@ -3415,6 +3473,15 @@ class ilObjGroupManagementGUI extends ilObjectPluginGUI
     private function getUserName(int $user_id): string
     {
         return $this->esc($this->getRawUserName($user_id));
+    }
+
+    /**
+     * "Firstname Lastname" (escaped), for sentences
+     */
+    private function getFullName(int $user_id): string
+    {
+        $name = ilObjUser::_lookupFullname($user_id);
+        return $this->esc($name !== "" ? $name : $this->txt("deleted_user"));
     }
 
     /**

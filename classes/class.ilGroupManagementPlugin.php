@@ -9,6 +9,8 @@ class ilGroupManagementPlugin extends ilRepositoryObjectPlugin
 {
     public const ID = "xgrm";
     public const PLUGIN_NAME = "GroupManagement";
+    /** Prefix of the plugin texts in the ILIAS language tables (component "rep", slot "robj") */
+    public const LANG_PREFIX = "rep_robj_" . self::ID;
 
     public function getPluginName(): string
     {

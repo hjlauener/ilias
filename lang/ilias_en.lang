@@ -32,7 +32,7 @@ method#:#Method
 method_a#:#A – Random assignment by lecturer
 method_a_info#:#The lecturer decides: the members of the parent course are randomly assigned to a fixed number of groups or topics. The assignment becomes visible for students after "Go".
 method_b#:#B – Fixed group size
-method_b_info#:#The lecturer defines how many people a group has (groups of 2, 3, 4, …). The members of the parent course are assigned randomly; the number of groups results from the number of course members. The assignment becomes visible for students after "Go".
+method_b_info#:#The lecturer defines how many people a group has (groups of 2, 3, 4, …). The members of the parent course are assigned randomly; the number of groups results from the number of course members. The assignment becomes visible for students after "Go". Optionally, students can then swap their places on the swap market.
 method_c#:#C – First come, first served
 method_c_info#:#Students enroll themselves into a group – first come, first served. The group size defines the number of places; optionally with a waitlist and automatic move-up when someone leaves. After the allocation, the places can be changed for each group individually.
 method_d#:#D – Registration with priorities
@@ -286,15 +286,15 @@ market_opened#:#The swap market is open now.
 market_closed_done#:#The swap market is closed now. Open swap requests are kept.
 market#:#Swap Market
 market_closed#:#The swap market is closed at the moment.
-market_intro#:#Would you like to change to another group (e.g. because of scheduling problems)? Choose the groups you would like to change to. As soon as a person from one of these groups agrees, your places are swapped. If someone from one of these groups would like to change to your group, the places are swapped right away.
+market_intro#:#Would you like to change to another group (e.g. because of scheduling problems)? Choose the groups you would like to change to. As soon as a person from one of these groups agrees, your places are swapped and you receive a message. If someone from one of these groups would like to change to your group, the places are swapped right away.
 place_swap_request#:#Post Swap Request
 swap_targets#:#I would like to change to
 swap_targets_info#:#You can choose several groups. The places are swapped with the first person who agrees.
 swap_targets_none#:#Please choose at least one other group.
 swap_note#:#Note
-swap_note_info#:#Optional, e.g. the reason for the swap. The people in the chosen groups see the note; your name stays hidden from them.
-swap_matched#:#Someone from the chosen group already wanted to change to your group: the places have been swapped right away.
-your_swap_request#:#Your swap request: from <strong>%s</strong> to <strong>%s</strong>. As soon as someone agrees, the places are swapped.
+swap_note_info#:#Optional, e.g. the reason for the swap. The people in the chosen groups see your name and the note.
+swap_matched#:#<strong>%s</strong> already wanted to change to your group: the places have been swapped right away.
+your_swap_request#:#Your swap request: from <strong>%s</strong> to <strong>%s</strong>. As soon as someone agrees, the places are swapped and you receive a message.
 withdraw_swap_request#:#Withdraw Swap Request
 confirm_withdraw_swap_request#:#Do you really want to withdraw your swap request?
 swap_request_withdrawn#:#Your swap request has been withdrawn.
@@ -304,8 +304,8 @@ swap_since#:#Posted on
 swap_since_short#:#since %s
 no_swap_offers#:#At the moment nobody would like to change to your group.
 accept_swap#:#Accept Swap
-confirm_accept_swap#:#Do you really want to swap? You change to <strong>%s</strong>, the other person takes over your place in <strong>%s</strong>.
-swap_done#:#The places have been swapped.
+confirm_accept_swap#:#Do you really want to swap places with <strong>%s</strong>? You change to <strong>%s</strong> and give up your place in <strong>%s</strong>.
+swap_done#:#You have swapped places with <strong>%s</strong>.
 swap_gone#:#This swap request is no longer open (withdrawn or already swapped).
 swap_invalid#:#This swap is not possible: you are not in one of the chosen groups.
 swap_not_in_group#:#Only course members with a group can swap.
@@ -314,3 +314,9 @@ market_log#:#Completed Swaps
 no_swap_requests#:#No open swap requests.
 no_swaps_yet#:#No swaps yet.
 or_word#:#or
+swap_offered_by#:#Offered by
+swap_partner_notified#:#The other person receives a message.
+swap_mail_subject#:#Swap market: your place has been swapped
+swap_mail_salutation#:#Hello %s
+swap_mail_body#:#Your swap request has been fulfilled: %s has swapped places with you. You are now in: %s
+swap_mail_management#:#Group management "%s" in "%s":

@@ -349,7 +349,7 @@ class ilGrmRepository
         $mgmt->setWaitlist((bool) ($rec["waitlist"] ?? true));
         $mgmt->setNumPriorities((int) ($rec["num_prios"] ?? 3));
         $mgmt->setRegistrationEnd((int) ($rec["reg_end"] ?? 0));
-        $mgmt->setMarketOpen((bool) ($rec["market_open"] ?? true));
+        $mgmt->setMarketOpen((bool) ($rec["market_open"] ?? false));
         $mgmt->setCreated((int) $rec["created"]);
         $mgmt->setPublished($rec["published"] !== null ? (int) $rec["published"] : null);
         return $mgmt;

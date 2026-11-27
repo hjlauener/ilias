@@ -40,6 +40,9 @@ Mitglieder eines Kurses in Gruppen einteilen.
      - *mindestens so gross*: übrige Personen werden verteilt (11 Personen, 4er → 6, 5).
    - Gleiche Abläufe wie bei Methode A: Zufallszuteilung (Vorschau), „Los“,
      Freigabe zurücknehmen, neue Kursmitglieder zuteilen.
+   - Optional mit **Tauschbörse** (Einstellung „Tauschbörse offen“, Voreinstellung
+     aus; nach „Los“ mit „Tauschbörse öffnen/schliessen“ umschaltbar). Sie
+     funktioniert wie bei Methode F.
 5. **Methode C – First Come – First Serve** (umgesetzt)
    - Die Dozierenden legen Anzahl Gruppen und Gruppengrösse (= Plätze pro Gruppe) fest.
    - **„Los – Einschreibung öffnen“** erstellt die Gruppen; die Studierenden
@@ -95,10 +98,14 @@ Mitglieder eines Kurses in Gruppen einteilen.
        Gruppen, in die sie wechseln möchte, optional mit Bemerkung (z. B. „Montags
        habe ich keine Zeit“).
      - Die Personen der gewünschten Gruppen sehen das Angebot („Platz in
-       Gruppe 1“, ohne Namen) und können es mit **„Tausch annehmen“** zusagen:
-       Die beiden Plätze werden getauscht, die Gruppengrössen bleiben gleich.
+       Gruppe 1“, mit Namen und Bemerkung) und können es mit **„Tausch
+       annehmen“** zusagen: Die beiden Plätze werden getauscht, die
+       Gruppengrössen bleiben gleich.
      - Passen zwei Tauschwünsche zusammen (1 → 2 und 2 → 1), wird sofort
        automatisch getauscht.
+     - Die Person, deren Tauschwunsch erfüllt wurde, erhält eine **Nachricht**
+       (ILIAS-Mail vom System, in ihrer Sprache, mit Link; je nach ihren
+       Mail-Einstellungen auch an die E-Mail-Adresse).
      - Tauschwünsche können zurückgezogen werden; wer verschoben wird, verliert
        seinen Tauschwunsch.
    - Die Dozierenden sehen die offenen Tauschwünsche (mit Namen) und ein
@@ -154,7 +161,8 @@ das Plugin im lokalen ILIAS neu (Doppelklick auf `dev/GroupManagement neu laden.
 | `classes/class.ilGrmRepository.php` | Datenbankzugriff |
 | `classes/class.ilGrmRandomAssigner.php` | Zufallsalgorithmus (Methoden A, B, F) |
 | `classes/class.ilGrmEnrollment.php` | Einschreiben (C, E), Warteliste, Plätze, Verschieben – gesperrt (`ilAtomQuery`) |
-| `classes/class.ilGrmSwapMarket.php` | Tauschbörse: Tauschwünsche, Tausch, Protokoll – gesperrt (Methode F) |
+| `classes/class.ilGrmSwapMarket.php` | Tauschbörse: Tauschwünsche, Tausch, Protokoll – gesperrt (Methoden B, F) |
+| `classes/class.ilGrmSwapNotification.php` | Nachricht (ILIAS-Mail) nach einem Tausch |
 | `classes/class.ilGrmPriorityAssigner.php` | Zuteilung nach Prioritäten (Methode D) |
 | `classes/class.ilGrmPriorityRegistration.php` | Wünsche speichern/zurückziehen, Anmeldung schliessen – gesperrt (Methode D) |
 | `classes/class.ilGrmPermissions.php` | Standardrechte der Kursrollen |

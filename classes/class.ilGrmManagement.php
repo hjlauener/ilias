@@ -58,8 +58,8 @@ class ilGrmManagement
     private int $num_priorities = 3;
     /** Method d: registration deadline (unix time), 0 = none */
     private int $registration_end = 0;
-    /** Method f: students can hand in and accept swap requests */
-    private bool $market_open = true;
+    /** Methods b and f: students can hand in and accept swap requests */
+    private bool $market_open = false;
     private int $created = 0;
     private ?int $published = null;
 

@@ -43,9 +43,11 @@ diff <(cut -d'#' -f1 lang/ilias_de.lang) <(cut -d'#' -f1 lang/ilias_en.lang)
 - Methode E (automatisch neue Gruppen): Einschreiben nur über
   `ilGrmEnrollment::enrollIntoNextGroup()` (gesperrt inkl. Gruppen-Sequenz); neue
   Gruppen werden wie die erste Gruppe benannt.
-- Methode F (Tauschbörse): Tauschwünsche und Tausch nur über `ilGrmSwapMarket`
-  (gesperrt); Studierende sehen bei Angeboten keine Namen. Öffnen/Schliessen der
-  Tauschbörse ist ein Umschalter ohne Rückfrage.
+- Tauschbörse (Methode F, optional bei Methode B): Tauschwünsche und Tausch nur
+  über `ilGrmSwapMarket` (gesperrt); Studierende sehen bei Angeboten den Namen.
+  Nach einem Tausch erhält die andere Person eine ILIAS-Mail in ihrer Sprache
+  (`ilGrmSwapNotification`, `ilMail::enqueue()` – in ILIAS 9, 10 und 11 gleich).
+  Öffnen/Schliessen der Tauschbörse ist ein Umschalter ohne Rückfrage.
 - Neue Objekte: Standardrechte der Kursrollen über `ilGrmPermissions` (siehe README).
 - Das Plugin leitet Aufrufe über `ilRepositoryGUI` auf `ilObjPluginDispatchGUI`
   um (`executeCommand()`), sonst gibt ILIAS 11 die Seite doppelt aus und bricht ab.

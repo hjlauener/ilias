@@ -45,6 +45,9 @@ final class ilGrmMethods
     /** Methods where students enroll themselves after "Los" */
     public const SELF_ENROLLMENT = [self::METHOD_C, self::METHOD_E];
 
+    /** Methods with a swap market after "Los" (b: optional, f: part of the method) */
+    public const SWAP_MARKET = [self::METHOD_B, self::METHOD_F];
+
     /** Methods with a limited number of places per group */
     public const WITH_PLACES = [self::METHOD_C, self::METHOD_D, self::METHOD_E];
 
@@ -63,10 +66,10 @@ final class ilGrmMethods
         return in_array($method, self::SELF_ENROLLMENT, true);
     }
 
-    /** Method f: students can swap their places */
+    /** Methods b and f: students can swap their places */
     public static function hasSwapMarket(string $method): bool
     {
-        return $method === self::METHOD_F;
+        return in_array($method, self::SWAP_MARKET, true);
     }
 
     public static function isValid(string $method): bool

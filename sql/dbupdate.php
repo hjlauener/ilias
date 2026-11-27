@@ -193,3 +193,12 @@ if (!$ilDB->tableExists('rep_robj_xgrm_swlog')) {
     $ilDB->addIndex('rep_robj_xgrm_swlog', ['mgmt_id'], 'i1');
 }
 ?>
+<#14>
+<?php
+/** @var ilDBInterface $ilDB */
+// the swap market is now also available for method b (optional, off by default):
+// keep it closed for all existing managements except method f
+$ilDB->manipulate(
+    "UPDATE rep_robj_xgrm_mgmt SET market_open = 0 WHERE method <> " . $ilDB->quote("f", "text")
+);
+?>
